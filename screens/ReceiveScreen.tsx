@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,8 +14,9 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { Button } from '../components/Button';
 import { QRCode } from '../components/QRCode';
-import { colors } from '../theme/colors';
-import { layout, typography } from '../theme/styles';
+import { useTheme } from '../contexts/ThemeContext';
+import { useThemedStyles, TypographyStyles } from '../theme/styles';
+import type { ThemeColors } from '../theme/colors';
 import { getAddress } from '../services/api';
 
 const showToast = (message: string) => {
@@ -25,10 +27,69 @@ const showToast = (message: string) => {
   }
 };
 
+const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
+  StyleSheet.create({
+    safeArea: {
+      paddingTop: 32,
+    },
+    container: {
+      flex: 1,
+      justifyContent: 'space-between',
+      paddingBottom: 48,
+    },
+    title: {
+      ...typography.heading,
+      marginBottom: 8,
+    },
+    subtitle: {
+      ...typography.body,
+      color: colors.textSecondary,
+      marginBottom: 32,
+    },
+    qrWrapper: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexGrow: 1,
+    },
+    errorContainer: {
+      alignItems: 'center',
+    },
+    errorText: {
+      ...typography.body,
+      color: colors.error,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    retryButton: {
+      minWidth: 160,
+    },
+    addressSection: {
+      marginTop: 32,
+    },
+    addressLabel: {
+      ...typography.subheading,
+      color: colors.textSecondary,
+      marginBottom: 12,
+    },
+    addressValue: {
+      ...typography.body,
+      ...typography.monospace,
+      fontSize: 16,
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    copyButton: {
+      alignSelf: 'stretch',
+    },
+  });
+
 const ReceiveScreen: React.FC = () => {
   const [address, setAddress] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { colors } = useTheme();
+  const { layout, typography } = useThemedStyles();
+  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   const fetchAddress = useCallback(async () => {
     try {
@@ -96,60 +157,5 @@ const ReceiveScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    paddingTop: 32,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingBottom: 48,
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: 32,
-  },
-  qrWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexGrow: 1,
-  },
-  errorContainer: {
-    alignItems: 'center',
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.error,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    minWidth: 160,
-  },
-  addressSection: {
-    marginTop: 32,
-  },
-  addressLabel: {
-    ...typography.subheading,
-    color: colors.textSecondary,
-    marginBottom: 12,
-  },
-  addressValue: {
-    ...typography.body,
-    ...typography.monospace,
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  copyButton: {
-    alignSelf: 'stretch',
-  },
-});
 
 export default ReceiveScreen;

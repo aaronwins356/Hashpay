@@ -1,3 +1,4 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -5,8 +6,9 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../components/Button';
 import { useBalance } from '../contexts/BalanceContext';
-import { colors } from '../theme/colors';
-import { layout, typography } from '../theme/styles';
+import { useTheme } from '../contexts/ThemeContext';
+import { useThemedStyles, TypographyStyles } from '../theme/styles';
+import type { ThemeColors } from '../theme/colors';
 import { HomeStackParamList } from '../types/navigation';
 
 const formatBTC = (amount: number): string => amount.toFixed(8);
@@ -14,10 +16,54 @@ const formatBTC = (amount: number): string => amount.toFixed(8);
 const formatUSD = (amount: number): string =>
   `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
+  StyleSheet.create({
+    safeArea: {
+      paddingTop: 32,
+    },
+    contentContainer: {
+      flexGrow: 1,
+      justifyContent: 'space-between',
+      paddingBottom: 48,
+    },
+    balanceContainer: {
+      marginTop: 24,
+    },
+    balanceLabel: {
+      ...typography.subheading,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: 12,
+    },
+    balanceValue: {
+      fontSize: 48,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    balanceFiat: {
+      ...typography.body,
+      color: colors.textSecondary,
+      marginTop: 8,
+    },
+    actionsContainer: {
+      marginTop: 48,
+    },
+    actionButton: {
+      height: 64,
+      borderRadius: 18,
+    },
+    firstAction: {
+      marginBottom: 16,
+    },
+  });
+
 const HomeScreen: React.FC = () => {
   const { balance, fiatBalance, refreshBalance } = useBalance();
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const [refreshing, setRefreshing] = useState(false);
+  const { colors } = useTheme();
+  const { layout, typography } = useThemedStyles();
+  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,45 +113,5 @@ const HomeScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    paddingTop: 32,
-  },
-  contentContainer: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingBottom: 48,
-  },
-  balanceContainer: {
-    marginTop: 24,
-  },
-  balanceLabel: {
-    ...typography.subheading,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  balanceValue: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  balanceFiat: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: 8,
-  },
-  actionsContainer: {
-    marginTop: 48,
-  },
-  actionButton: {
-    height: 64,
-    borderRadius: 18,
-  },
-  firstAction: {
-    marginBottom: 16,
-  },
-});
 
 export default HomeScreen;

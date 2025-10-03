@@ -1,3 +1,4 @@
+
 import 'react-native-gesture-handler';
 import React, { useMemo } from 'react';
 import { NavigationContainer, DarkTheme, Theme } from '@react-navigation/native';
@@ -18,12 +19,37 @@ import SendScreen from './screens/SendScreen';
 import ReceiveScreen from './screens/ReceiveScreen';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { BalanceProvider } from './contexts/BalanceContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { Button } from './components/Button';
-import { colors } from './theme/colors';
-import { typography } from './theme/styles';
+import { useThemedStyles, TypographyStyles } from './theme/styles';
+import type { ThemeColors } from './theme/colors';
 import { AuthStackParamList, HomeStackParamList, MainTabParamList, RootStackParamList } from './types/navigation';
 
-class ScreenErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+const createErrorBoundaryStyles = (colors: ThemeColors, typography: TypographyStyles): ErrorBoundaryStyles =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    title: {
+      ...typography.heading,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    message: {
+      ...typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+  });
+
+type ErrorBoundaryStyles = ReturnType<typeof createErrorBoundaryStyles>;
+
+class ScreenErrorBoundary extends React.Component<{ children: React.ReactNode; styles: ErrorBoundaryStyles }, { hasError: boolean }> {
   public state = { hasError: false };
 
   static getDerivedStateFromError(): { hasError: boolean } {
@@ -40,10 +66,11 @@ class ScreenErrorBoundary extends React.Component<{ children: React.ReactNode },
 
   render(): React.ReactNode {
     if (this.state.hasError) {
+      const { styles } = this.props;
       return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Something went wrong</Text>
-          <Text style={styles.errorMessage}>Please try again or restart the app.</Text>
+        <View style={styles.container}>
+          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.message}>Please try again or restart the app.</Text>
           <Button label="Retry" onPress={this.handleReset} />
         </View>
       );
@@ -54,13 +81,19 @@ class ScreenErrorBoundary extends React.Component<{ children: React.ReactNode },
 }
 
 const withScreenErrorBoundary = <P extends object>(Component: React.ComponentType<P>): React.FC<P> => {
-  return function ScreenWithBoundary(props: P) {
+  const WrappedComponent: React.FC<P> = props => {
+    const { colors } = useTheme();
+    const { typography } = useThemedStyles();
+    const styles = useMemo(() => createErrorBoundaryStyles(colors, typography), [colors, typography]);
+
     return (
-      <ScreenErrorBoundary>
+      <ScreenErrorBoundary styles={styles}>
         <Component {...props} />
       </ScreenErrorBoundary>
     );
   };
+
+  return WrappedComponent;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -85,36 +118,42 @@ const AuthStackNavigator: React.FC = () => (
   </AuthStack.Navigator>
 );
 
-const MainTabsNavigator: React.FC = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarActiveTintColor: colors.accent,
-      tabBarInactiveTintColor: colors.textSecondary,
-      tabBarStyle: {
-        backgroundColor: '#050505',
-        borderTopColor: colors.border,
-        paddingBottom: 8,
-        height: 70,
-      },
-      tabBarIcon: ({ color, size }) => {
-        const iconName = route.name === 'Home'
-          ? 'home'
-          : route.name === 'History'
-          ? 'time'
-          : 'settings';
-        return <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
-      },
-    })}
-  >
-    <Tab.Screen name="Home" component={HomeStackNavigator} />
-    <Tab.Screen name="History" component={withScreenErrorBoundary(HistoryScreen)} />
-    <Tab.Screen name="Settings" component={withScreenErrorBoundary(SettingsScreen)} />
-  </Tab.Navigator>
-);
+const MainTabsNavigator: React.FC = () => {
+  const { colors } = useTheme();
+
+  const tabBarStyle = useMemo(
+    () => ({
+      backgroundColor: colors.surface,
+      borderTopColor: colors.border,
+      paddingBottom: 8,
+      height: 70,
+    }),
+    [colors]
+  );
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle,
+        tabBarIcon: ({ color, size }) => {
+          const iconName = route.name === 'Home' ? 'home' : route.name === 'History' ? 'time' : 'settings';
+          return <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeStackNavigator} />
+      <Tab.Screen name="History" component={withScreenErrorBoundary(HistoryScreen)} />
+      <Tab.Screen name="Settings" component={withScreenErrorBoundary(SettingsScreen)} />
+    </Tab.Navigator>
+  );
+};
 
 const AppNavigator: React.FC = () => {
   const { status } = useAuth();
+  const { colors } = useTheme();
   const isAuthenticated = status === 'authenticated';
 
   const navigationTheme: Theme = useMemo(
@@ -126,11 +165,11 @@ const AppNavigator: React.FC = () => {
         primary: colors.accent,
         text: colors.textPrimary,
         border: colors.border,
-        card: '#111111',
+        card: colors.surface,
         notification: colors.accent,
       },
     }),
-    []
+    [colors]
   );
 
   return (
@@ -146,16 +185,29 @@ const AppNavigator: React.FC = () => {
   );
 };
 
+const ThemedProviders: React.FC = () => {
+  const { colors, mode } = useTheme();
+  const containerStyle = useMemo(() => ({ flex: 1, backgroundColor: colors.background }), [colors]);
+
+  return (
+    <View style={containerStyle}>
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <AuthProvider>
+        <BalanceProvider>
+          <AppNavigator />
+        </BalanceProvider>
+      </AuthProvider>
+    </View>
+  );
+};
+
 const App: React.FC = () => {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <StatusBar barStyle="light-content" backgroundColor={colors.background} />
-        <AuthProvider>
-          <BalanceProvider>
-            <AppNavigator />
-          </BalanceProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <ThemedProviders />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -164,25 +216,6 @@ const App: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  errorTitle: {
-    ...typography.heading,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  errorMessage: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
   },
 });
 

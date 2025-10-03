@@ -1,8 +1,9 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
+  Modal as RNModal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -18,8 +19,9 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withT
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useBalance } from '../contexts/BalanceContext';
-import { colors } from '../theme/colors';
-import { layout, typography } from '../theme/styles';
+import { useTheme } from '../contexts/ThemeContext';
+import { useThemedStyles, TypographyStyles, LayoutStyles } from '../theme/styles';
+import type { ThemeColors } from '../theme/colors';
 import { HomeStackParamList } from '../types/navigation';
 
 const showToast = (message: string) => {
@@ -32,9 +34,152 @@ const showToast = (message: string) => {
 
 const formatBTC = (value: number): string => value.toFixed(8);
 
+const createStyles = (colors: ThemeColors, typography: TypographyStyles, layout: LayoutStyles) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    safeArea: {
+      paddingTop: 32,
+    },
+    flex: {
+      flex: 1,
+    },
+    contentContainer: {
+      flexGrow: 1,
+      paddingBottom: 48,
+    },
+    headerSection: {
+      marginBottom: 24,
+    },
+    title: {
+      ...typography.heading,
+      marginBottom: 8,
+    },
+    subtitle: {
+      ...typography.body,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    formSection: {
+      marginBottom: 24,
+    },
+    field: {
+      marginBottom: 16,
+    },
+    scanButton: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 28,
+      marginBottom: 16,
+    },
+    feesContainer: {
+      backgroundColor: colors.cardBackground,
+      borderRadius: 12,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.accent,
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+      marginBottom: 32,
+    },
+    sectionTitle: {
+      ...typography.subheading,
+      color: colors.textPrimary,
+      marginBottom: 12,
+    },
+    feeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    feeLabel: {
+      ...typography.body,
+      color: colors.textSecondary,
+    },
+    feeValue: {
+      ...typography.body,
+      fontWeight: '600',
+    },
+    totalRow: {
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: 12,
+      marginTop: 8,
+      marginBottom: 0,
+    },
+    totalLabel: {
+      ...typography.subheading,
+      color: colors.textPrimary,
+    },
+    totalValue: {
+      ...typography.subheading,
+      fontWeight: '700',
+    },
+    buttonWrapper: {
+      marginTop: 16,
+    },
+    ripple: {
+      position: 'absolute',
+      width: 600,
+      height: 600,
+      borderRadius: 300,
+      backgroundColor: colors.accent,
+      alignSelf: 'center',
+      top: -200,
+    },
+    scannerOverlay: {
+      flex: 1,
+      backgroundColor: colors.modalBackdrop,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    scannerCard: {
+      width: '100%',
+      backgroundColor: colors.cardBackground,
+      borderRadius: 20,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    scannerTitle: {
+      ...typography.subheading,
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    scannerFrame: {
+      width: '100%',
+      aspectRatio: 1,
+      borderRadius: 18,
+      overflow: 'hidden',
+      borderWidth: 2,
+      borderColor: colors.accent,
+      alignSelf: 'center',
+      marginBottom: 16,
+    },
+    permissionText: {
+      ...typography.caption,
+      color: colors.error,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    scannerButton: {
+      marginTop: 8,
+    },
+  });
+
 const SendScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const { sendBTC } = useBalance();
+  const { colors } = useTheme();
+  const { layout, typography } = useThemedStyles();
+  const styles = useMemo(() => createStyles(colors, typography, layout), [colors, typography, layout]);
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,7 +293,9 @@ const SendScreen: React.FC = () => {
           <ScrollView contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.headerSection}>
               <Text style={styles.title}>Send Bitcoin</Text>
-              <Text style={styles.subtitle}>Review the details carefully before confirming your transfer.</Text>
+              <Text style={styles.subtitle}>
+                Review the details carefully before confirming your transfer.
+              </Text>
             </View>
 
             <View style={styles.formSection}>
@@ -208,155 +355,24 @@ const SendScreen: React.FC = () => {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      <Modal visible={isScannerVisible} animationType="fade" transparent onRequestClose={() => setIsScannerVisible(false)}>
+      <RNModal visible={isScannerVisible} animationType="fade" transparent onRequestClose={() => setIsScannerVisible(false)}>
         <View style={styles.scannerOverlay}>
           <View style={styles.scannerCard}>
             <Text style={styles.scannerTitle}>Scan recipient QR</Text>
             <View style={styles.scannerFrame}>
-              <BarCodeScanner
-                onBarCodeScanned={handleBarCodeScanned}
-                style={StyleSheet.absoluteFillObject}
-              />
+              <BarCodeScanner onBarCodeScanned={handleBarCodeScanned} style={StyleSheet.absoluteFillObject} />
             </View>
             {hasCameraPermission === false ? (
-              <Text style={styles.permissionText}>Enable camera permissions in settings to scan addresses.</Text>
+              <Text style={styles.permissionText}>
+                Enable camera permissions in settings to scan addresses.
+              </Text>
             ) : null}
-              <Button label="Cancel" onPress={() => setIsScannerVisible(false)} fullWidth style={styles.scannerButton} />
+            <Button label="Cancel" onPress={() => setIsScannerVisible(false)} fullWidth style={styles.scannerButton} />
           </View>
         </View>
-      </Modal>
+      </RNModal>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeArea: {
-    paddingTop: 32,
-  },
-  flex: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexGrow: 1,
-    paddingBottom: 48,
-  },
-  headerSection: {
-    marginBottom: 24,
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  formSection: {
-    marginBottom: 24,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  scanButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 28,
-    marginBottom: 16,
-  },
-  feesContainer: {
-    ...layout.card,
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    ...typography.subheading,
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  feeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  feeLabel: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  feeValue: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 12,
-    marginTop: 8,
-    marginBottom: 0,
-  },
-  totalLabel: {
-    ...typography.subheading,
-    color: colors.textPrimary,
-  },
-  totalValue: {
-    ...typography.subheading,
-    fontWeight: '700',
-  },
-  buttonWrapper: {
-    marginTop: 16,
-  },
-  ripple: {
-    position: 'absolute',
-    width: 600,
-    height: 600,
-    borderRadius: 300,
-    backgroundColor: colors.accent,
-    alignSelf: 'center',
-    top: -200,
-  },
-  scannerOverlay: {
-    flex: 1,
-    backgroundColor: '#000000CC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  scannerCard: {
-    width: '100%',
-    backgroundColor: colors.cardBackground,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  scannerTitle: {
-    ...typography.subheading,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  scannerFrame: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: colors.accent,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  permissionText: {
-    ...typography.caption,
-    color: colors.error,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  scannerButton: {
-    marginTop: 8,
-  },
-});
 
 export default SendScreen;

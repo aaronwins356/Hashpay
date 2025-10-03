@@ -1,3 +1,4 @@
+
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
@@ -15,8 +16,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../theme/colors';
-import { layout, typography } from '../theme/styles';
+import { useTheme } from '../contexts/ThemeContext';
+import { useThemedStyles, TypographyStyles } from '../theme/styles';
+import type { ThemeColors } from '../theme/colors';
 import { AuthStackParamList, RootStackParamList } from '../types/navigation';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -38,10 +40,57 @@ const showErrorToast = (message: string) => {
   }
 };
 
+const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
+  StyleSheet.create({
+    container: {
+      backgroundColor: colors.background,
+      paddingHorizontal: 0,
+    },
+    keyboardAvoidingView: {
+      flex: 1,
+    },
+    content: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 48,
+      paddingBottom: 32,
+    },
+    title: {
+      ...typography.heading,
+      marginBottom: 8,
+    },
+    subtitle: {
+      ...typography.body,
+      color: colors.textSecondary,
+      marginBottom: 32,
+    },
+    form: {
+      marginBottom: 32,
+    },
+    helperText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      marginTop: -8,
+      marginBottom: 16,
+    },
+    footerText: {
+      ...typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    footerLink: {
+      color: colors.accent,
+      fontWeight: '700',
+    },
+  });
+
 const SignupScreen: React.FC = () => {
   const navigation = useNavigation<SignupScreenNavigation>();
   const rootNavigation = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   const { signup } = useAuth();
+  const { colors } = useTheme();
+  const { layout, typography } = useThemedStyles();
+  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -73,15 +122,17 @@ const SignupScreen: React.FC = () => {
     return Object.keys(nextErrors).length === 0;
   }, [email, password, confirmPassword]);
 
-  const helperText = useMemo(() => 'Password must be at least 8 characters and contain a number.', []);
+  const helperText = useMemo(
+    () => 'Password must be at least 8 characters and contain a number.',
+    []
+  );
 
   const handleSignup = useCallback(async () => {
     if (submitting) {
       return;
     }
 
-    const isValid = validate();
-    if (!isValid) {
+    if (!validate()) {
       return;
     }
 
@@ -110,7 +161,9 @@ const SignupScreen: React.FC = () => {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Sign up to start sending and receiving crypto instantly.</Text>
+          <Text style={styles.subtitle}>
+            Sign up to start sending and receiving crypto instantly.
+          </Text>
 
           <View style={styles.form}>
             <Input
@@ -176,48 +229,5 @@ const SignupScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.background,
-    paddingHorizontal: 0,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 32,
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: 32,
-  },
-  form: {
-    marginBottom: 32,
-  },
-  helperText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: -8,
-    marginBottom: 16,
-  },
-  footerText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  footerLink: {
-    color: colors.accent,
-    fontWeight: '700',
-  },
-});
 
 export default SignupScreen;
