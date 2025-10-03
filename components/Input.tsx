@@ -5,17 +5,20 @@ import { colors } from '../theme/colors';
 export interface InputProps extends TextInputProps {
   label?: string;
   containerStyle?: StyleProp<ViewStyle>;
+  error?: string;
 }
 
 export const Input: React.FC<InputProps> = ({
   label,
   containerStyle,
+  error,
   onFocus,
   onBlur,
   secureTextEntry,
   ...rest
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const hasError = Boolean(error);
 
   const handleFocus: TextInputProps['onFocus'] = event => {
     setIsFocused(true);
@@ -33,13 +36,21 @@ export const Input: React.FC<InputProps> = ({
       <TextInput
         placeholderTextColor={colors.textSecondary}
         selectionColor={colors.accent}
-        style={[styles.input, isFocused && styles.focusedInput, secureTextEntry && styles.secureFont]}
+        style={[
+          styles.input,
+          isFocused && styles.focusedInput,
+          secureTextEntry && styles.secureFont,
+          hasError && styles.errorInput,
+        ]}
         onFocus={handleFocus}
         onBlur={handleBlur}
         secureTextEntry={secureTextEntry}
         {...rest}
       />
-      <View style={[styles.underline, isFocused && styles.focusedUnderline]} />
+      <View
+        style={[styles.underline, isFocused && styles.focusedUnderline, hasError && styles.errorUnderline]}
+      />
+      {hasError ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 };
@@ -76,6 +87,18 @@ const styles = StyleSheet.create({
   },
   focusedUnderline: {
     backgroundColor: colors.accent,
+  },
+  errorInput: {
+    color: colors.textPrimary,
+  },
+  errorUnderline: {
+    backgroundColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 
