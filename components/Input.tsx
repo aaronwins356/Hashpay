@@ -6,6 +6,7 @@ export interface InputProps extends TextInputProps {
   label?: string;
   containerStyle?: StyleProp<ViewStyle>;
   error?: string;
+  numeric?: boolean;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -15,6 +16,8 @@ export const Input: React.FC<InputProps> = ({
   onFocus,
   onBlur,
   secureTextEntry,
+  numeric = false,
+  keyboardType,
   ...rest
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -45,6 +48,7 @@ export const Input: React.FC<InputProps> = ({
         onFocus={handleFocus}
         onBlur={handleBlur}
         secureTextEntry={secureTextEntry}
+        keyboardType={numeric ? 'decimal-pad' : keyboardType}
         {...rest}
       />
       <View

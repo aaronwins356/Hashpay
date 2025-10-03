@@ -15,3 +15,9 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
 };
+
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  Send: undefined;
+  Receive: undefined;
+};
