@@ -1,34 +1,67 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getStoredToken, storeToken, clearToken } from '../services/auth';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { login as loginRequest, signup as signupRequest } from '../services/api';
+import { clearToken, getStoredToken, storeToken } from '../services/auth';
 
-type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated';
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
-export interface AuthContextValue {
-  token: string | null;
+interface AuthContextValue {
+  userToken: string | null;
+  loading: boolean;
+  error: string | null;
   status: AuthStatus;
   initialize: () => Promise<void>;
-  signIn: (token: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  biometricLogin: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const resolveErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(null);
-  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [userToken, setUserToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const hasBootstrappedRef = useRef(false);
 
   const initialize = useCallback(async () => {
-    setStatus('loading');
-    const storedToken = await getStoredToken();
+    if (hasBootstrappedRef.current) {
+      return;
+    }
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    hasBootstrappedRef.current = true;
+    setLoading(true);
+    setError(null);
 
-    if (storedToken) {
-      setToken(storedToken);
-      setStatus('authenticated');
-    } else {
-      setToken(null);
-      setStatus('unauthenticated');
+    try {
+      const token = await getStoredToken();
+      if (token) {
+        setUserToken(token);
+      } else {
+        setUserToken(null);
+      }
+    } catch (initializationError) {
+      const message = resolveErrorMessage(initializationError, 'Unable to restore your session.');
+      setError(message);
+      console.warn('Auth initialization error:', initializationError);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -36,27 +69,111 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void initialize();
   }, [initialize]);
 
-  const signIn = useCallback(async (nextToken: string) => {
-    setStatus('loading');
-    await storeToken(nextToken);
-    setToken(nextToken);
-    setStatus('authenticated');
+  const handleAuthSuccess = useCallback(async (token: string) => {
+    await storeToken(token);
+    setUserToken(token);
   }, []);
 
-  const signOut = useCallback(async () => {
-    setStatus('loading');
-    await clearToken();
-    setToken(null);
-    setStatus('unauthenticated');
+  const signup = useCallback(
+    async (email: string, password: string) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const token = await signupRequest(email, password);
+        await handleAuthSuccess(token);
+      } catch (signupError) {
+        const message = resolveErrorMessage(signupError, 'Unable to create your account.');
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleAuthSuccess]
+  );
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const token = await loginRequest(email, password);
+        await handleAuthSuccess(token);
+      } catch (loginError) {
+        const message = resolveErrorMessage(loginError, 'Unable to log you in.');
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleAuthSuccess]
+  );
+
+  const logout = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await clearToken();
+      setUserToken(null);
+    } catch (logoutError) {
+      const message = resolveErrorMessage(logoutError, 'Unable to log you out.');
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const value = useMemo<AuthContextValue>(() => ({ token, status, initialize, signIn, signOut }), [
-    token,
-    status,
-    initialize,
-    signIn,
-    signOut,
-  ]);
+  const biometricLogin = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!hasHardware || !isEnrolled) {
+        throw new Error('Biometric authentication is not available on this device.');
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Login with FaceID/TouchID',
+        fallbackLabel: 'Use passcode',
+        disableDeviceFallback: false,
+      });
+
+      if (!result.success) {
+        const errorMessage = result.error === 'user_cancel'
+          ? 'Biometric authentication was cancelled.'
+          : 'Biometric authentication failed.';
+        throw new Error(errorMessage);
+      }
+
+      const token = await getStoredToken();
+      if (!token) {
+        throw new Error('No saved session found. Please login with your password first.');
+      }
+
+      setUserToken(token);
+    } catch (biometricError) {
+      const message = resolveErrorMessage(biometricError, 'Unable to log you in with biometrics.');
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const status: AuthStatus = loading ? 'loading' : userToken ? 'authenticated' : 'unauthenticated';
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ userToken, loading, error, status, initialize, signup, login, logout, biometricLogin }),
+    [userToken, loading, error, status, initialize, signup, login, logout, biometricLogin]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

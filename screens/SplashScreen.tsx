@@ -12,7 +12,11 @@ export type SplashScreenNavigation = NativeStackNavigationProp<AuthStackParamLis
 const SplashScreen: React.FC = () => {
   const navigation = useNavigation<SplashScreenNavigation>();
   const rootNavigation = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
-  const { status } = useAuth();
+  const { status, initialize } = useAuth();
+
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
 
   useEffect(() => {
     if (status === 'loading') {
