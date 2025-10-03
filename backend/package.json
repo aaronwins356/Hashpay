@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
-    "format": "prettier --check ."
+    "format": "prettier --check .",
+    "migrate": "node scripts/run-migrations.js"
   },
   "author": "",
   "license": "MIT",
@@ -35,6 +36,7 @@
     "eslint": "^8.56.0",
     "prettier": "^3.2.5",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "node-pg-migrate": "^7.6.1"
   }
 }
