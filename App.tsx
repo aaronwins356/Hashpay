@@ -14,12 +14,14 @@ import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import SendScreen from './screens/SendScreen';
+import ReceiveScreen from './screens/ReceiveScreen';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { BalanceProvider } from './contexts/BalanceContext';
 import { Button } from './components/Button';
 import { colors } from './theme/colors';
 import { typography } from './theme/styles';
-import { AuthStackParamList, MainTabParamList, RootStackParamList } from './types/navigation';
+import { AuthStackParamList, HomeStackParamList, MainTabParamList, RootStackParamList } from './types/navigation';
 
 class ScreenErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   public state = { hasError: false };
@@ -64,6 +66,15 @@ const withScreenErrorBoundary = <P extends object>(Component: React.ComponentTyp
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
+
+const HomeStackNavigator: React.FC = () => (
+  <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Screen name="HomeMain" component={withScreenErrorBoundary(HomeScreen)} />
+    <HomeStack.Screen name="Send" component={withScreenErrorBoundary(SendScreen)} />
+    <HomeStack.Screen name="Receive" component={withScreenErrorBoundary(ReceiveScreen)} />
+  </HomeStack.Navigator>
+);
 
 const AuthStackNavigator: React.FC = () => (
   <AuthStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
@@ -96,7 +107,7 @@ const MainTabsNavigator: React.FC = () => (
       },
     })}
   >
-    <Tab.Screen name="Home" component={withScreenErrorBoundary(HomeScreen)} />
+    <Tab.Screen name="Home" component={HomeStackNavigator} />
     <Tab.Screen name="History" component={withScreenErrorBoundary(HistoryScreen)} />
     <Tab.Screen name="Settings" component={withScreenErrorBoundary(SettingsScreen)} />
   </Tab.Navigator>
