@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import cors from 'cors';
 import config from '../config';
 import './db';
+import authRoutes from './routes/auth';
 
 const app: Application = express();
 
@@ -11,6 +12,8 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(morgan('combined'));
+
+app.use('/auth', authRoutes);
 
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
