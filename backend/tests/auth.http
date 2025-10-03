@@ -1,0 +1,21 @@
+### Signup a new user
+POST http://localhost:3000/auth/signup
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Sup3rSecur3!"
+}
+
+### Login with existing user
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Sup3rSecur3!"
+}
+
+### Fetch authenticated profile
+GET http://localhost:3000/auth/me
+Authorization: Bearer {{token}}
