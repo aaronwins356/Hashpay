@@ -1,4 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
+
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -12,8 +13,9 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { colors } from '../theme/colors';
-import { layout, typography } from '../theme/styles';
+import type { ThemeColors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
+import { useThemedStyles, TypographyStyles } from '../theme/styles';
 import { Button } from '../components/Button';
 import { AuthStackParamList } from '../types/navigation';
 
@@ -49,10 +51,83 @@ const SLIDES: OnboardingSlide[] = [
 
 export type OnboardingNavigation = NativeStackNavigationProp<AuthStackParamList, 'Onboarding'>;
 
+const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
+  StyleSheet.create({
+    slide: {
+      paddingTop: 60,
+      alignItems: 'center',
+    },
+    illustrationContainer: {
+      marginBottom: 40,
+      alignItems: 'center',
+    },
+    illustrationCircle: {
+      width: 200,
+      height: 200,
+      borderRadius: 100,
+      borderWidth: 2,
+      borderColor: colors.accent,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      shadowColor: colors.accent,
+      shadowOpacity: 0.4,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 6,
+    },
+    illustration: {
+      fontSize: 72,
+    },
+    title: {
+      ...typography.heading,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    subtitle: {
+      ...typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      paddingHorizontal: 24,
+      lineHeight: 24,
+    },
+    footer: {
+      paddingVertical: 24,
+    },
+    indicatorContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    indicator: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.border,
+      marginHorizontal: 4,
+    },
+    activeIndicator: {
+      backgroundColor: colors.accent,
+      width: 24,
+    },
+    secondaryButton: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: 12,
+    },
+    primaryButton: {
+      marginTop: 16,
+    },
+  });
+
 const OnboardingScreen: React.FC = () => {
   const navigation = useNavigation<OnboardingNavigation>();
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
+  const { colors, mode } = useTheme();
+  const { layout, typography } = useThemedStyles();
+  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   const handleViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<ViewToken> }) => {
@@ -64,8 +139,8 @@ const OnboardingScreen: React.FC = () => {
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 60 });
 
-  const renderItem: ListRenderItem<OnboardingSlide> = useCallback(({ item }) => {
-    return (
+  const renderItem: ListRenderItem<OnboardingSlide> = useCallback(
+    ({ item }) => (
       <View style={[styles.slide, { width }]}>
         <View style={styles.illustrationContainer}>
           <View style={styles.illustrationCircle}>
@@ -75,8 +150,9 @@ const OnboardingScreen: React.FC = () => {
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.subtitle}>{item.subtitle}</Text>
       </View>
-    );
-  }, []);
+    ),
+    [styles]
+  );
 
   const handleGetStarted = () => {
     navigation.navigate('Signup');
@@ -89,7 +165,7 @@ const OnboardingScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={layout.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <FlatList
         ref={flatListRef}
         data={SLIDES}
@@ -103,8 +179,8 @@ const OnboardingScreen: React.FC = () => {
       />
       <View style={styles.footer}>
         <View style={styles.indicatorContainer}>
-          {SLIDES.map((_, index) => (
-            <View key={_.key} style={[styles.indicator, index === activeIndex && styles.activeIndicator]} />
+          {SLIDES.map((slide, index) => (
+            <View key={slide.key} style={[styles.indicator, index === activeIndex && styles.activeIndicator]} />
           ))}
         </View>
         <Button
@@ -123,72 +199,5 @@ const OnboardingScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  slide: {
-    paddingTop: 60,
-    alignItems: 'center',
-  },
-  illustrationContainer: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  illustrationCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 2,
-    borderColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#111111',
-    shadowColor: colors.accent,
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
-  },
-  illustration: {
-    fontSize: 72,
-  },
-  title: {
-    ...typography.heading,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-    lineHeight: 24,
-  },
-  footer: {
-    paddingVertical: 24,
-  },
-  indicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  indicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.border,
-    marginHorizontal: 4,
-  },
-  activeIndicator: {
-    backgroundColor: colors.accent,
-    width: 24,
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF10',
-    marginTop: 12,
-  },
-  primaryButton: {
-    marginTop: 16,
-  },
-});
 
 export default OnboardingScreen;

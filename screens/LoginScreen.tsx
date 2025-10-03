@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -16,8 +17,9 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../theme/colors';
-import { layout, typography } from '../theme/styles';
+import { useTheme } from '../contexts/ThemeContext';
+import { useThemedStyles, TypographyStyles } from '../theme/styles';
+import type { ThemeColors } from '../theme/colors';
 import { AuthStackParamList, RootStackParamList } from '../types/navigation';
 
 type LoginScreenNavigation = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -48,10 +50,55 @@ const getBiometricLabel = (types: LocalAuthentication.AuthenticationType[]): str
   return 'Biometrics';
 };
 
+const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
+  StyleSheet.create({
+    container: {
+      backgroundColor: colors.background,
+      paddingHorizontal: 0,
+    },
+    keyboardAvoidingView: {
+      flex: 1,
+    },
+    content: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 48,
+      paddingBottom: 32,
+    },
+    title: {
+      ...typography.heading,
+      marginBottom: 8,
+    },
+    subtitle: {
+      ...typography.body,
+      color: colors.textSecondary,
+      marginBottom: 32,
+    },
+    form: {
+      marginBottom: 32,
+    },
+    secondaryButton: {
+      marginTop: 16,
+    },
+    footerText: {
+      ...typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 24,
+    },
+    footerLink: {
+      color: colors.accent,
+      fontWeight: '700',
+    },
+  });
+
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigation>();
   const rootNavigation = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   const { login, biometricLogin } = useAuth();
+  const { colors } = useTheme();
+  const { layout, typography } = useThemedStyles();
+  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -105,8 +152,7 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
-    const isValid = validate();
-    if (!isValid) {
+    if (!validate()) {
       return;
     }
 
@@ -201,13 +247,13 @@ const LoginScreen: React.FC = () => {
                 onPress={handleBiometricLogin}
                 loading={biometricSubmitting}
                 fullWidth
-                style={styles.biometricButton}
+                style={styles.secondaryButton}
               />
             ) : null}
           </View>
 
           <Text style={styles.footerText}>
-            Don’t have an account?{' '}
+            Don't have an account yet?{' '}
             <Text style={styles.footerLink} onPress={handleNavigateToSignup}>
               Sign up
             </Text>
@@ -217,45 +263,5 @@ const LoginScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.background,
-    paddingHorizontal: 0,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 32,
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: 32,
-  },
-  form: {
-    marginBottom: 32,
-  },
-  footerText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  footerLink: {
-    color: colors.accent,
-    fontWeight: '700',
-  },
-  biometricButton: {
-    marginTop: 8,
-  },
-});
 
 export default LoginScreen;
