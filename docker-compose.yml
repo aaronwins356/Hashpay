@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_USER: btcuser
+      POSTGRES_PASSWORD: btcpass
+      POSTGRES_DB: btcdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  bitcoin:
+    image: ruimarinho/bitcoin-core:24
+    restart: always
+    command:
+      -printtoconsole
+      -testnet=1
+      -server=1
+      -rpcuser=user
+      -rpcpassword=password
+      -rpcallowip=0.0.0.0/0
+      -rpcbind=0.0.0.0
+    ports:
+      - "18332:18332"
+      - "18333:18333"
+    volumes:
+      - bitcoin-data:/home/bitcoin/.bitcoin
+
+volumes:
+  pgdata:
+  bitcoin-data:
