@@ -76,6 +76,8 @@ docker-compose up --build
 
 This starts Postgres, Bitcoin Core (testnet), and the API service. The API is available at `http://localhost:3000`.
 
+> **Note:** The API container now boots via `scripts/start-with-migrations.sh`, which applies pending migrations with `node scripts/run-migrations.js` before launching `node dist/src/server.js`. This keeps local environments aligned with production by ensuring schema changes are in place before the API accepts traffic.
+
 ### CI/CD
 
 GitHub Actions automatically:
