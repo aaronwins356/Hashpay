@@ -1,5 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import Constants from 'expo-constants';
+
+const { extra } = Constants.expoConfig ?? {};
+const FALLBACK_API_BASE_URL = 'http://localhost:3000';
+
+const normalizeBaseUrl = (baseUrl = FALLBACK_API_BASE_URL) =>
+  baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
+const API_BASE_URL = normalizeBaseUrl(extra?.apiBaseUrl);
+
+const buildApiUrl = (path) => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  // Allow API routing to be controlled from Expo's public config.
+  return `${API_BASE_URL}${normalizedPath}`;
+};
 
 export default function App() {
   const [balance, setBalance] = useState("...");
@@ -7,13 +22,13 @@ export default function App() {
   const [amount, setAmount] = useState("");
 
   async function fetchBalance() {
-    const res = await fetch("http://localhost:3000/balance");
+    const res = await fetch(buildApiUrl('/balance'));
     const data = await res.json();
     setBalance(data.balance);
   }
 
   async function sendBTC() {
-    const res = await fetch("http://localhost:3000/send", {
+    const res = await fetch(buildApiUrl('/send'), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ address, amount: parseFloat(amount) })
