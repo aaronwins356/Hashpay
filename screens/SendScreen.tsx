@@ -33,6 +33,13 @@ const showToast = (message: string) => {
 };
 
 const formatBTC = (value: number): string => value.toFixed(8);
+const formatUSD = (value: number): string =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 
 const createStyles = (colors: ThemeColors, typography: TypographyStyles, layout: LayoutStyles) =>
   StyleSheet.create({
@@ -120,6 +127,16 @@ const createStyles = (colors: ThemeColors, typography: TypographyStyles, layout:
       ...typography.subheading,
       fontWeight: '700',
     },
+    helperText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    availabilityText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
     buttonWrapper: {
       marginTop: 16,
     },
@@ -176,7 +193,7 @@ const createStyles = (colors: ThemeColors, typography: TypographyStyles, layout:
 
 const SendScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
-  const { sendBTC } = useBalance();
+  const { sendBTC, balances, rates } = useBalance();
   const { colors } = useTheme();
   const { layout, typography } = useThemedStyles();
   const styles = useMemo(() => createStyles(colors, typography, layout), [colors, typography, layout]);
@@ -206,9 +223,23 @@ const SendScreen: React.FC = () => {
     return Number.isFinite(parsed) ? parsed : 0;
   }, [amount]);
 
-  const networkFee = useMemo(() => (amountValue > 0 ? Math.max(0.00001, amountValue * 0.0015) : 0), [amountValue]);
-  const serviceFee = useMemo(() => (amountValue > 0 ? Math.max(0.00001, amountValue * 0.0005) : 0), [amountValue]);
-  const total = useMemo(() => amountValue + networkFee + serviceFee, [amountValue, networkFee, serviceFee]);
+  const usdPerBtc = rates.usdPerBtc;
+
+  const feeSummary = useMemo(() => {
+    if (amountValue <= 0) {
+      return { feeUsd: 0, feeBtc: null, totalBtc: null };
+    }
+
+    const usdValue = usdPerBtc > 0 ? amountValue * usdPerBtc : 0;
+    const feeUsd = Math.max(usdValue * 0.02, 1.45);
+    const feeBtc = usdPerBtc > 0 ? feeUsd / usdPerBtc : null;
+    const totalBtc = feeBtc != null ? feeBtc + amountValue : null;
+    return {
+      feeUsd,
+      feeBtc,
+      totalBtc,
+    };
+  }, [amountValue, usdPerBtc]);
 
   const handleAmountChange = useCallback((value: string) => {
     const sanitized = value.replace(/[^0-9.]/g, '');
@@ -320,6 +351,10 @@ const SendScreen: React.FC = () => {
                 keyboardType="decimal-pad"
                 containerStyle={styles.field}
               />
+              <Text style={styles.availabilityText}>
+                Available: {formatBTC(balances.btc.balance)} BTC
+                {usdPerBtc > 0 ? ` (${formatUSD(balances.btc.balance * usdPerBtc)})` : ''}
+              </Text>
             </View>
 
             <View style={styles.feesContainer}>
@@ -329,17 +364,26 @@ const SendScreen: React.FC = () => {
                 <Text style={styles.feeValue}>{formatBTC(amountValue)} BTC</Text>
               </View>
               <View style={styles.feeRow}>
-                <Text style={styles.feeLabel}>Network Fee</Text>
-                <Text style={styles.feeValue}>{formatBTC(networkFee)} BTC</Text>
-              </View>
-              <View style={styles.feeRow}>
-                <Text style={styles.feeLabel}>Service Fee</Text>
-                <Text style={styles.feeValue}>{formatBTC(serviceFee)} BTC</Text>
+                <Text style={styles.feeLabel}>Transfer Fee</Text>
+                <Text style={styles.feeValue}>
+                  {amountValue > 0
+                    ? feeSummary.feeBtc != null
+                      ? `${formatBTC(feeSummary.feeBtc)} BTC (${formatUSD(feeSummary.feeUsd)})`
+                      : formatUSD(feeSummary.feeUsd)
+                    : '—'}
+                </Text>
               </View>
               <View style={[styles.feeRow, styles.totalRow]}>
-                <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>{formatBTC(total)} BTC</Text>
+                <Text style={styles.totalLabel}>Total Debit</Text>
+                <Text style={styles.totalValue}>
+                  {amountValue > 0
+                    ? feeSummary.totalBtc != null
+                      ? `${formatBTC(feeSummary.totalBtc)} BTC`
+                      : 'Pending rate…'
+                    : '—'}
+                </Text>
               </View>
+              <Text style={styles.helperText}>Includes a 2% fee (minimum $1.45 USD).</Text>
             </View>
 
             <View style={styles.buttonWrapper}>

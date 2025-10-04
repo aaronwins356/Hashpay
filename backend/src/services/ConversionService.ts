@@ -2,6 +2,7 @@ import axios from 'axios';
 import ExchangeRateRepository from '../repositories/ExchangeRateRepository';
 import FeeService from './FeeService';
 import { Currency } from '../repositories/WalletRepository';
+import config from '../../config';
 
 export type ConvertDirection = 'BTC_TO_USD' | 'USD_TO_BTC';
 
@@ -38,6 +39,17 @@ export class ConversionService {
   private timer: NodeJS.Timeout | null = null;
 
   private cache: RateCache | null = null;
+
+  constructor() {
+    const fallback = config.fiat.defaultUsdPerBtc;
+    if (fallback > 0) {
+      this.cache = {
+        rawUsdPerBtc: fallback,
+        finalUsdPerBtc: fallback * (1 - FEE_PERCENT),
+        fetchedAt: new Date(0)
+      };
+    }
+  }
 
   public start(): void {
     if (this.timer) {
@@ -99,6 +111,18 @@ export class ConversionService {
     }
 
     return this.cache;
+  }
+
+  public setManualRate(rate: number): void {
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error('ConversionService: manual rate must be positive.');
+    }
+
+    this.cache = {
+      rawUsdPerBtc: rate,
+      finalUsdPerBtc: rate * (1 - FEE_PERCENT),
+      fetchedAt: new Date()
+    };
   }
 
   public async getQuote(input: ConversionQuoteInput): Promise<ConversionQuoteResult> {

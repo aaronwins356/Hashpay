@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { login as loginRequest, setAuthToken, signup as signupRequest } from '../services/api';
+import { clearStoredKeys, login as loginRequest, setAuthToken, signup as signupRequest } from '../services/api';
 import { clearToken, getStoredToken, storeToken } from '../services/auth';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
 
     try {
-      await clearToken();
+      await Promise.all([clearToken(), clearStoredKeys()]);
       setAuthToken(null);
       setUserToken(null);
     } catch (logoutError) {

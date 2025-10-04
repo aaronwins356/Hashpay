@@ -60,6 +60,11 @@ const fiat = {
     process.env.EXCHANGE_RATE_CACHE_MS,
     'EXCHANGE_RATE_CACHE_MS',
     60_000
+  ),
+  defaultUsdPerBtc: parseNumberOptional(
+    process.env.DEFAULT_USD_PER_BTC,
+    'DEFAULT_USD_PER_BTC',
+    30_000
   )
 };
 

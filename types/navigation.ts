@@ -20,4 +20,5 @@ export type HomeStackParamList = {
   HomeMain: undefined;
   Send: undefined;
   Receive: undefined;
+  Convert: undefined;
 };

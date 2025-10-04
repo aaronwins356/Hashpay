@@ -6,25 +6,68 @@ import { getStoredToken } from './auth';
 export type TransactionStatus = 'pending' | 'confirmed' | 'failed';
 export type TransactionDirection = 'inbound' | 'outbound';
 
-export interface WalletBalanceSummary {
+export interface BalanceSummary {
   balance: number;
   pending: number;
   depositAddress: string | null;
 }
 
-export interface WalletBalance {
-  btcBalance: WalletBalanceSummary;
-  usdBalance: WalletBalanceSummary;
+export interface WalletSnapshot {
+  balances: {
+    btc: BalanceSummary;
+    usd: BalanceSummary;
+  };
+  rates: {
+    usdPerBtc: number;
+  };
+}
+
+export interface TransactionFeeBreakdown {
+  amount: number | null;
+  currency: 'BTC' | 'USD' | null;
+  usd: number | null;
 }
 
 export interface Transaction {
   id: string;
+  currency: 'BTC' | 'USD';
+  primaryAmount: number;
   amountBtc: number | null;
   amountUsd: number | null;
+  convertedAmountBtc: number | null;
+  convertedAmountUsd: number | null;
   direction: TransactionDirection;
   status: TransactionStatus;
+  confirmations: number | null;
   txId: string | null;
   createdAt: string;
+  description: string | null;
+  fee: TransactionFeeBreakdown;
+  counterparty: string | null;
+  usdPerBtc: number | null;
+  sourceCurrency: 'BTC' | 'USD' | null;
+  requestedAmount: number | null;
+}
+
+export interface ConversionQuote {
+  from: 'BTC' | 'USD';
+  to: 'BTC' | 'USD';
+  requestedAmount: number;
+  convertedAmount: number;
+  feeAmount: string;
+  feeUsd: number;
+  rate: {
+    raw: number;
+    final: number;
+    fetchedAt: string;
+  };
+}
+
+export interface ExecuteConversionResponse {
+  convertedAmount: number;
+  feeAmount: string;
+  rate: number;
+  direction: 'BTC_TO_USD' | 'USD_TO_BTC';
 }
 
 export interface SendBTCResponse {
@@ -83,7 +126,13 @@ const buildHeaders = (body?: BodyInit | null, extraHeaders?: HeadersInit): Heade
   return headers;
 };
 
-type WalletEndpoint = '/wallet/balance' | '/wallet/history' | '/wallet/send' | '/wallet/address';
+type WalletEndpoint =
+  | '/wallet/balance'
+  | '/wallet/history'
+  | '/wallet/send'
+  | '/wallet/address'
+  | '/convert/quote'
+  | '/convert/execute';
 
 interface WalletRouteConfig {
   backendPath: string;
@@ -101,6 +150,9 @@ interface BackendBalanceSummary {
 interface BackendBalanceResponse {
   btcBalance?: BackendBalanceSummary;
   usdBalance?: BackendBalanceSummary;
+  rates?: {
+    usdPerBtc?: number;
+  };
 }
 
 interface BackendTransaction {
@@ -109,7 +161,9 @@ interface BackendTransaction {
   status: TransactionStatus;
   currency: 'BTC' | 'USD';
   amount: string | number;
+  feeAmount?: string | number;
   txHash: string | null;
+  description?: string | null;
   createdAt: string | Date;
   metadata?: Record<string, unknown>;
 }
@@ -137,42 +191,145 @@ const extractNumericMetadata = (
   return parseNumeric(metadata[key]);
 };
 
-const adaptBalanceSummary = (summary?: BackendBalanceSummary): WalletBalanceSummary => ({
+const extractStringMetadata = (
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+): string | null => {
+  if (!metadata || !(key in metadata)) {
+    return null;
+  }
+  const value = metadata[key];
+  return typeof value === 'string' ? value : null;
+};
+
+const adaptBalanceSummary = (summary?: BackendBalanceSummary): BalanceSummary => ({
   balance: typeof summary?.balance === 'number' ? summary.balance : 0,
   pending: typeof summary?.pending === 'number' ? summary.pending : 0,
   depositAddress: typeof summary?.depositAddress === 'string' ? summary.depositAddress : null,
 });
 
-const adaptBalancesResponse = (payload: unknown): WalletBalance => {
+const adaptBalancesResponse = (payload: unknown): WalletSnapshot => {
   const data = payload as BackendBalanceResponse;
 
+  const usdPerBtcRaw = data?.rates?.usdPerBtc;
+  const usdPerBtc = typeof usdPerBtcRaw === 'number' && Number.isFinite(usdPerBtcRaw) ? usdPerBtcRaw : 0;
+
   return {
-    btcBalance: adaptBalanceSummary(data?.btcBalance),
-    usdBalance: adaptBalanceSummary(data?.usdBalance),
+    balances: {
+      btc: adaptBalanceSummary(data?.btcBalance),
+      usd: adaptBalanceSummary(data?.usdBalance),
+    },
+    rates: {
+      usdPerBtc,
+    },
+  };
+};
+
+const adaptConversionQuote = (payload: unknown): ConversionQuote => {
+  const data = payload as Partial<ConversionQuote> & {
+    from?: string;
+    to?: string;
+    rate?: { raw?: number; final?: number; fetchedAt?: string | Date };
+  };
+
+  const from: 'BTC' | 'USD' = data?.from === 'USD' ? 'USD' : 'BTC';
+  const to: 'BTC' | 'USD' = data?.to === 'BTC' ? 'BTC' : 'USD';
+  const fetchedAt = data?.rate?.fetchedAt
+    ? new Date(data.rate.fetchedAt).toISOString()
+    : new Date().toISOString();
+
+  return {
+    from,
+    to,
+    requestedAmount: typeof data?.requestedAmount === 'number' ? data.requestedAmount : 0,
+    convertedAmount: typeof data?.convertedAmount === 'number' ? data.convertedAmount : 0,
+    feeAmount: typeof data?.feeAmount === 'string' ? data.feeAmount : String(data?.feeAmount ?? '0'),
+    feeUsd: typeof data?.feeUsd === 'number' ? data.feeUsd : 0,
+    rate: {
+      raw: typeof data?.rate?.raw === 'number' ? data.rate.raw : 0,
+      final: typeof data?.rate?.final === 'number' ? data.rate.final : 0,
+      fetchedAt,
+    },
+  };
+};
+
+const adaptExecuteConversionResponse = (payload: unknown): ExecuteConversionResponse => {
+  const data = payload as Partial<ExecuteConversionResponse> & { direction?: string };
+  const direction = data?.direction === 'USD_TO_BTC' ? 'USD_TO_BTC' : 'BTC_TO_USD';
+
+  return {
+    convertedAmount: typeof data?.convertedAmount === 'number' ? data.convertedAmount : 0,
+    feeAmount: typeof data?.feeAmount === 'string' ? data.feeAmount : String(data?.feeAmount ?? '0'),
+    rate: typeof data?.rate === 'number' ? data.rate : 0,
+    direction,
   };
 };
 
 const adaptTransaction = (transaction: BackendTransaction): Transaction => {
-  const metadataAmountBtc = extractNumericMetadata(transaction.metadata, 'amountBtc');
-  const metadataAmountUsd = extractNumericMetadata(transaction.metadata, 'amountUsd');
+  const metadata = (transaction.metadata ?? {}) as Record<string, unknown>;
+  const metadataAmountBtc = extractNumericMetadata(metadata, 'amountBtc');
+  const metadataAmountUsd = extractNumericMetadata(metadata, 'amountUsd');
+  const metadataConvertedBtc = extractNumericMetadata(metadata, 'convertedAmountBtc');
+  const metadataConvertedUsd = extractNumericMetadata(metadata, 'convertedAmountUsd');
+  const metadataUsdPerBtc = extractNumericMetadata(metadata, 'usdPerBtc');
+  const metadataConfirmations = extractNumericMetadata(metadata, 'confirmations');
+  const metadataFeeUsd = extractNumericMetadata(metadata, 'feeUsd');
+  const metadataFeeCurrency = extractStringMetadata(metadata, 'feeCurrency');
+  const metadataToAddress = extractStringMetadata(metadata, 'toAddress');
+  const metadataCounterpartyUser = extractNumericMetadata(metadata, 'toUserId');
+  const metadataFromCurrency = extractStringMetadata(metadata, 'fromCurrency');
+  const metadataRequestedAmount = extractNumericMetadata(metadata, 'requestedAmount');
 
   const rawAmount = parseNumeric(transaction.amount);
   const amountBtc = transaction.currency === 'BTC' ? rawAmount ?? metadataAmountBtc : metadataAmountBtc;
   const amountUsd = transaction.currency === 'USD' ? rawAmount ?? metadataAmountUsd : metadataAmountUsd;
+
+  const feeAmount = parseNumeric(transaction.feeAmount);
+  const feeCurrency = metadataFeeCurrency === 'BTC' || metadataFeeCurrency === 'USD'
+    ? metadataFeeCurrency
+    : transaction.currency;
 
   const createdAt =
     transaction.createdAt instanceof Date
       ? transaction.createdAt.toISOString()
       : transaction.createdAt;
 
+  const counterparty = metadataToAddress
+    ? metadataToAddress
+    : typeof metadataCounterpartyUser === 'number'
+      ? `User #${metadataCounterpartyUser}`
+      : null;
+
+  const primaryAmount = Math.abs(
+    transaction.currency === 'BTC'
+      ? amountBtc ?? 0
+      : amountUsd ?? 0
+  );
+
   return {
     id: transaction.id,
-    amountBtc,
-    amountUsd,
+    currency: transaction.currency,
+    primaryAmount,
+    amountBtc: amountBtc ?? null,
+    amountUsd: amountUsd ?? null,
+    convertedAmountBtc: metadataConvertedBtc,
+    convertedAmountUsd: metadataConvertedUsd,
     direction: transaction.direction === 'credit' ? 'inbound' : 'outbound',
     status: transaction.status,
+    confirmations: metadataConfirmations != null ? Math.trunc(metadataConfirmations) : null,
     txId: transaction.txHash,
     createdAt,
+    description: typeof transaction.description === 'string' ? transaction.description : null,
+    fee: {
+      amount: feeAmount,
+      currency: feeCurrency ?? null,
+      usd: metadataFeeUsd,
+    },
+    counterparty,
+    usdPerBtc: metadataUsdPerBtc,
+    sourceCurrency:
+      metadataFromCurrency === 'BTC' || metadataFromCurrency === 'USD' ? metadataFromCurrency : null,
+    requestedAmount: metadataRequestedAmount,
   };
 };
 
@@ -246,6 +403,16 @@ const walletRouteConfigs: Record<WalletEndpoint, WalletRouteConfig> = {
     backendPath: '/v1/btc/address',
     method: 'POST',
     adaptResponse: adaptAddressResponse,
+  },
+  '/convert/quote': {
+    backendPath: '/v1/convert/quote',
+    method: 'POST',
+    adaptResponse: adaptConversionQuote,
+  },
+  '/convert/execute': {
+    backendPath: '/v1/convert/execute',
+    method: 'POST',
+    adaptResponse: adaptExecuteConversionResponse,
   },
 };
 
@@ -333,7 +500,7 @@ export const login = async (email: string, password: string): Promise<string> =>
   return result.token;
 };
 
-export const getBalance = async (): Promise<WalletBalance> => request<WalletBalance>('/wallet/balance');
+export const getBalance = async (): Promise<WalletSnapshot> => request<WalletSnapshot>('/wallet/balance');
 
 export const sendBTC = async (address: string, amount: number): Promise<SendBTCResponse> => {
   return request<SendBTCResponse>(
@@ -351,10 +518,39 @@ export const getTransactions = async (): Promise<Transaction[]> =>
 export const getAddress = async (): Promise<WalletAddressResponse> =>
   request<WalletAddressResponse>('/wallet/address');
 
+export const getConversionQuote = async (from: 'BTC' | 'USD', amount: number): Promise<ConversionQuote> =>
+  request<ConversionQuote>(
+    '/convert/quote',
+    {
+      method: 'POST',
+      body: JSON.stringify({ from, amount }),
+    }
+  );
+
+export const executeConversion = async (
+  from: 'BTC' | 'USD',
+  amount: number
+): Promise<ExecuteConversionResponse> =>
+  request<ExecuteConversionResponse>(
+    '/convert/execute',
+    {
+      method: 'POST',
+      body: JSON.stringify({ from, amount }),
+    }
+  );
+
 export const exportKeys = async (): Promise<string> => {
   const mnemonic = await SecureStore.getItemAsync(MNEMONIC_SECURE_STORE_KEY);
   if (!mnemonic) {
     throw new Error('No recovery phrase found on this device.');
   }
   return mnemonic;
+};
+
+export const clearStoredKeys = async (): Promise<void> => {
+  try {
+    await SecureStore.deleteItemAsync(MNEMONIC_SECURE_STORE_KEY);
+  } catch (error) {
+    console.warn('Failed to clear stored keys', error);
+  }
 };

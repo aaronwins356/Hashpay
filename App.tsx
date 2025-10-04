@@ -17,6 +17,7 @@ import HistoryScreen from './screens/HistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import SendScreen from './screens/SendScreen';
 import ReceiveScreen from './screens/ReceiveScreen';
+import ConvertScreen from './screens/ConvertScreen';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { BalanceProvider } from './contexts/BalanceContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -106,6 +107,7 @@ const HomeStackNavigator: React.FC = () => (
     <HomeStack.Screen name="HomeMain" component={withScreenErrorBoundary(HomeScreen)} />
     <HomeStack.Screen name="Send" component={withScreenErrorBoundary(SendScreen)} />
     <HomeStack.Screen name="Receive" component={withScreenErrorBoundary(ReceiveScreen)} />
+    <HomeStack.Screen name="Convert" component={withScreenErrorBoundary(ConvertScreen)} />
   </HomeStack.Navigator>
 );
 

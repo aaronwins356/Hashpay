@@ -8,8 +8,12 @@ export class BalanceController {
     }
 
     try {
-      const balances = await WalletService.getBalances(req.user.id);
-      return res.status(200).json({ btcBalance: balances.BTC, usdBalance: balances.USD });
+      const snapshot = await WalletService.getBalances(req.user.id);
+      return res.status(200).json({
+        btcBalance: snapshot.balances.BTC,
+        usdBalance: snapshot.balances.USD,
+        rates: { usdPerBtc: snapshot.usdPerBtc },
+      });
     } catch (error) {
       return res.status(500).json({ message: 'Unable to fetch balances', error: (error as Error).message });
     }
