@@ -53,7 +53,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
-      - backend/.env.example
+      - backend/.env.docker
     environment:
       NODE_ENV: production
     depends_on:
