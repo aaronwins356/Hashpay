@@ -41,22 +41,13 @@ const formatDate = (value: string): string => {
   }).format(date);
 };
 
-const formatFiat = (amount: number | null, currency: string | null): string | null => {
-  if (amount === null) {
-    return null;
-  }
-
-  if (currency) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  }
-
-  return `$${amount.toFixed(2)}`;
-};
+const formatUsd = (amount: number): string =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 
 const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
   StyleSheet.create({
@@ -107,14 +98,13 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction })
   const { typography } = useThemedStyles();
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
   const statusColor = getStatusColor(transaction.status, colors);
-  const rawFiatDisplay = formatFiat(transaction.fiatAmount, transaction.fiatCurrency);
+  const directionSign = transaction.direction === 'inbound' ? '+' : '-';
+  const btcAmount = Math.abs(transaction.amountBtc ?? 0);
+  const amountLabel = `${directionSign}${btcAmount.toFixed(8)} BTC`;
   const fiatDisplay =
-    rawFiatDisplay && transaction.direction === 'outbound'
-      ? `-${rawFiatDisplay}`
-      : rawFiatDisplay;
-  const sign = transaction.direction === 'inbound' ? '+' : '-';
-  const amountLabel = `${sign}${Math.abs(transaction.amountBtc).toFixed(8)} BTC`;
-  const confirmationsLabel = `${transaction.confirmations} confirmation${transaction.confirmations === 1 ? '' : 's'}`;
+    transaction.amountUsd != null
+      ? `${directionSign}${formatUsd(Math.abs(transaction.amountUsd))}`
+      : null;
 
   return (
     <View style={styles.container}>
@@ -134,12 +124,8 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction })
         <View style={styles.meta}>
           <Text style={styles.metaLabel}>Transaction ID</Text>
           <Text style={styles.metaValue} selectable numberOfLines={1} ellipsizeMode="middle">
-            {transaction.txid ?? 'Pending assignment'}
+            {transaction.txId ?? 'Pending assignment'}
           </Text>
-        </View>
-        <View style={styles.meta}>
-          <Text style={styles.metaLabel}>Confirmations</Text>
-          <Text style={styles.metaValue}>{confirmationsLabel}</Text>
         </View>
       </Card>
     </View>

@@ -64,6 +64,15 @@ const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
       lineHeight: 24,
       textAlign: 'center',
     },
+    confirmDescription: {
+      ...typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    confirmButton: {
+      marginTop: 16,
+      alignSelf: 'stretch',
+    },
     toggleRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -85,9 +94,14 @@ const SettingsScreen: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [seedPhrase, setSeedPhrase] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleExportKeys = useCallback(async () => {
+  const handleRequestExport = useCallback(() => {
+    setConfirmationVisible(true);
+  }, []);
+
+  const handleConfirmExport = useCallback(async () => {
     if (exporting) {
       return;
     }
@@ -97,6 +111,7 @@ const SettingsScreen: React.FC = () => {
       const phrase = await exportKeys();
       setSeedPhrase(phrase);
       setModalVisible(true);
+      setConfirmationVisible(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to export keys right now.';
       showToast(message);
@@ -135,7 +150,7 @@ const SettingsScreen: React.FC = () => {
           <Card>
             <Button
               label={exporting ? 'Exporting Keys...' : 'Export Recovery Phrase'}
-              onPress={handleExportKeys}
+              onPress={handleRequestExport}
               loading={exporting}
               fullWidth
             />
@@ -170,6 +185,27 @@ const SettingsScreen: React.FC = () => {
           </Card>
         </View>
       </View>
+
+      <Modal
+        visible={confirmationVisible}
+        onClose={() => setConfirmationVisible(false)}
+        title="Confirm Export"
+        actionLabel="Cancel"
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.confirmDescription}>
+            Your recovery phrase reveals full access to your funds. Make sure no one is watching and store it
+            securely.
+          </Text>
+          <Button
+            label={exporting ? 'Exporting...' : 'Reveal Recovery Phrase'}
+            onPress={handleConfirmExport}
+            loading={exporting}
+            fullWidth
+            style={styles.confirmButton}
+          />
+        </View>
+      </Modal>
 
       <Modal visible={modalVisible} onClose={() => setModalVisible(false)} title="Recovery Phrase">
         <View style={styles.modalContent}>
