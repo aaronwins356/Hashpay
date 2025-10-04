@@ -95,7 +95,7 @@ const ReceiveScreen: React.FC = () => {
     try {
       setLoading(true);
       const result = await getAddress();
-      setAddress(result);
+      setAddress(result.address);
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to load address.';

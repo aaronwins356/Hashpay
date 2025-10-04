@@ -7,7 +7,6 @@ export interface BalanceContextValue {
   fiatCurrency: string | null;
   pendingBalance: number;
   pendingFiatBalance: number;
-  exchangeRate: number | null;
   refreshBalance: () => Promise<void>;
   sendBTC: (address: string, amount: number) => Promise<SendBTCResponse>;
 }
@@ -20,15 +19,12 @@ export const BalanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [fiatCurrency, setFiatCurrency] = useState<string | null>(null);
   const [pendingBalance, setPendingBalance] = useState<number>(0);
   const [pendingFiatBalance, setPendingFiatBalance] = useState<number>(0);
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-
   const applyBalance = useCallback((walletBalance: WalletBalance) => {
-    setBalance(walletBalance.confirmed.btc);
-    setFiatBalance(walletBalance.confirmed.fiat ?? 0);
-    setFiatCurrency(walletBalance.confirmed.fiatCurrency ?? walletBalance.exchangeRate?.currency ?? null);
-    setPendingBalance(walletBalance.pending.btc);
-    setPendingFiatBalance(walletBalance.pending.fiat ?? 0);
-    setExchangeRate(walletBalance.exchangeRate?.fiatPerBtc ?? null);
+    setBalance(walletBalance.btcBalance.balance);
+    setPendingBalance(walletBalance.btcBalance.pending);
+    setFiatBalance(walletBalance.usdBalance.balance);
+    setPendingFiatBalance(walletBalance.usdBalance.pending);
+    setFiatCurrency('USD');
   }, []);
 
   const refreshBalance = useCallback(async () => {
@@ -58,11 +54,10 @@ export const BalanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fiatCurrency,
       pendingBalance,
       pendingFiatBalance,
-      exchangeRate,
       refreshBalance,
       sendBTC,
     }),
-    [balance, fiatBalance, fiatCurrency, pendingBalance, pendingFiatBalance, exchangeRate, refreshBalance, sendBTC]
+    [balance, fiatBalance, fiatCurrency, pendingBalance, pendingFiatBalance, refreshBalance, sendBTC]
   );
 
   return <BalanceContext.Provider value={value}>{children}</BalanceContext.Provider>;
