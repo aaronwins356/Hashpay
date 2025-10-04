@@ -62,6 +62,16 @@ export class TransactionRepository {
     return result.rows[0];
   }
 
+  public static async logPendingSend(
+    userId: number,
+    txid: string,
+    amountSats: bigint | number | string,
+    networkFee: bigint | number | string,
+    serviceFee: bigint | number | string
+  ): Promise<Transaction> {
+    return this.logTransaction(userId, txid, amountSats, networkFee, serviceFee, 'pending');
+  }
+
   public static async getTransactionsForUser(userId: number): Promise<Transaction[]> {
     const selectSql = `
       SELECT

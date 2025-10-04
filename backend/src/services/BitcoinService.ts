@@ -1,29 +1,30 @@
 import axios, { AxiosInstance } from 'axios';
 import config from '../../config';
 
-interface RpcRequest {
+type JsonRpcRequest = {
   jsonrpc: '2.0';
   id: string;
   method: string;
   params: unknown[];
-}
+};
 
-interface RpcError {
+type JsonRpcError = {
   code: number;
   message: string;
-}
+};
 
-interface RpcResponse<T> {
+type JsonRpcResponse<T> = {
   result: T;
-  error: RpcError | null;
+  error: JsonRpcError | null;
   id: string;
-}
+};
 
-class BitcoinRpcService {
+export class BitcoinService {
   private readonly client: AxiosInstance;
 
   constructor() {
     const { host, port, username, password } = config.bitcoinRpc;
+
     this.client = axios.create({
       baseURL: `http://${host}:${port}`,
       auth: {
@@ -37,15 +38,15 @@ class BitcoinRpcService {
     });
   }
 
-  public async call<T>(method: string, params: unknown[] = []): Promise<T> {
-    const payload: RpcRequest = {
+  public async rpcCall<T>(method: string, params: unknown[] = []): Promise<T> {
+    const payload: JsonRpcRequest = {
       jsonrpc: '2.0',
       id: `${Date.now()}`,
       method,
       params
     };
 
-    const { data } = await this.client.post<RpcResponse<T>>('/', payload);
+    const { data } = await this.client.post<JsonRpcResponse<T>>('/', payload);
 
     if (data.error) {
       const error = new Error(data.error.message);
@@ -55,8 +56,20 @@ class BitcoinRpcService {
 
     return data.result;
   }
+
+  public async getBalance(): Promise<number> {
+    return this.rpcCall<number>('getbalance');
+  }
+
+  public async getNewAddress(): Promise<string> {
+    return this.rpcCall<string>('getnewaddress');
+  }
+
+  public async sendToAddress(address: string, amount: number): Promise<string> {
+    return this.rpcCall<string>('sendtoaddress', [address, amount]);
+  }
 }
 
-const bitcoinRpcService = new BitcoinRpcService();
+const bitcoinService = new BitcoinService();
 
-export default bitcoinRpcService;
+export default bitcoinService;
