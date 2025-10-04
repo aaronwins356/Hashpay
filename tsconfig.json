@@ -11,7 +11,7 @@
     "paths": {
       "*": ["*", "src/*"]
     },
-    "typeRoots": ["./node_modules/@types", "./frontend/@types"],
+    "typeRoots": ["./node_modules/@types", "./frontend/@types", "./src/types"],
     "types": ["jest", "react", "react-native"]
   },
   "include": [
