@@ -9,9 +9,29 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: btcuser
+          POSTGRES_PASSWORD: btcpass
+          POSTGRES_DB: btcdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U btcuser"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     permissions:
       contents: read
       packages: write
+    env:
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_USER: btcuser
+      DB_PASSWORD: btcpass
+      DB_NAME: btcdb
     defaults:
       run:
         working-directory: backend
@@ -24,14 +44,27 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends postgresql-client -y
+
       - name: Install dependencies
         run: npm install
+
+      - name: Wait for Postgres
+        run: |
+          until pg_isready --host "$DB_HOST" --port "$DB_PORT" --username "$DB_USER"; do
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
 
       - name: Lint
         run: npm run lint
 
       - name: Build
         run: npm run build
+
+      - name: Run migrations
+        run: npm run migrate
 
       - name: Test
         run: npm run test
