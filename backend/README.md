@@ -28,6 +28,23 @@ The `.env.example` file defaults to `localhost` hosts so it works with services 
 
 The `.env.docker` template retains the container hostnames used inside the Compose network, so the API container can reach Postgres and Bitcoin services without additional configuration.
 
+## Key API endpoints
+
+The Hashpay backend exposes a versioned REST API under `/v1`. The most important routes are:
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/v1/balance` | Return BTC and USD wallet balances for the authenticated user. |
+| `POST` | `/v1/btc/address` | Generate or return a Bitcoin deposit address. |
+| `POST` | `/v1/btc/send` | Broadcast a Bitcoin payment after applying transfer fees. |
+| `POST` | `/v1/usd/send` | Transfer internal USD balance between users with fees. |
+| `POST` | `/v1/convert/quote` | Fetch a conversion quote at the cached BTC/USD rate. |
+| `POST` | `/v1/convert/execute` | Execute a BTC ⇄ USD conversion atomically. |
+| `GET` | `/v1/transactions` | List BTC and USD transactions with pagination. |
+| `POST` | `/v1/webhook/btc` | Internal webhook used by the Bitcoin watcher to update deposit confirmations. |
+
+The OpenAPI document for all endpoints is available at `/docs/openapi.json` once the server is running.
+
 ## Git ignore rules
 
 The repository `.gitignore` prevents committing runtime environment files (`backend/.env`). If you create a customised copy of `.env.docker`, rename it (for example `backend/.env.docker.local`) to keep it out of version control.
