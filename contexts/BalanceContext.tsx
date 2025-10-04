@@ -1,15 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getBalance, sendBTC as sendBTCApi } from '../services/api';
-
-export interface SendBTCResult {
-  txid: string;
-}
+import { getBalance, sendBTC as sendBTCApi, type SendBTCResponse, type WalletBalance } from '../services/api';
 
 export interface BalanceContextValue {
   balance: number;
   fiatBalance: number;
+  fiatCurrency: string | null;
+  pendingBalance: number;
+  pendingFiatBalance: number;
+  exchangeRate: number | null;
   refreshBalance: () => Promise<void>;
-  sendBTC: (address: string, amount: number) => Promise<SendBTCResult>;
+  sendBTC: (address: string, amount: number) => Promise<SendBTCResponse>;
 }
 
 const BalanceContext = createContext<BalanceContextValue | undefined>(undefined);
@@ -17,12 +17,24 @@ const BalanceContext = createContext<BalanceContextValue | undefined>(undefined)
 export const BalanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [balance, setBalance] = useState<number>(0);
   const [fiatBalance, setFiatBalance] = useState<number>(0);
+  const [fiatCurrency, setFiatCurrency] = useState<string | null>(null);
+  const [pendingBalance, setPendingBalance] = useState<number>(0);
+  const [pendingFiatBalance, setPendingFiatBalance] = useState<number>(0);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+
+  const applyBalance = useCallback((walletBalance: WalletBalance) => {
+    setBalance(walletBalance.confirmed.btc);
+    setFiatBalance(walletBalance.confirmed.fiat ?? 0);
+    setFiatCurrency(walletBalance.confirmed.fiatCurrency ?? walletBalance.exchangeRate?.currency ?? null);
+    setPendingBalance(walletBalance.pending.btc);
+    setPendingFiatBalance(walletBalance.pending.fiat ?? 0);
+    setExchangeRate(walletBalance.exchangeRate?.fiatPerBtc ?? null);
+  }, []);
 
   const refreshBalance = useCallback(async () => {
-    const { btc, fiat } = await getBalance();
-    setBalance(btc);
-    setFiatBalance(fiat);
-  }, []);
+    const data = await getBalance();
+    applyBalance(data);
+  }, [applyBalance]);
 
   useEffect(() => {
     refreshBalance().catch(error => {
@@ -43,10 +55,14 @@ export const BalanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     () => ({
       balance,
       fiatBalance,
+      fiatCurrency,
+      pendingBalance,
+      pendingFiatBalance,
+      exchangeRate,
       refreshBalance,
       sendBTC,
     }),
-    [balance, fiatBalance, refreshBalance, sendBTC]
+    [balance, fiatBalance, fiatCurrency, pendingBalance, pendingFiatBalance, exchangeRate, refreshBalance, sendBTC]
   );
 
   return <BalanceContext.Provider value={value}>{children}</BalanceContext.Provider>;

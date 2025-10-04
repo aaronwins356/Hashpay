@@ -52,6 +52,30 @@ const bitcoinRpc = {
   password: ensureEnv('BTC_RPC_PASS')
 };
 
+const fiat = {
+  currency: (process.env.FIAT_CURRENCY ?? 'USD').toUpperCase(),
+  exchangeRateApiUrl:
+    process.env.EXCHANGE_RATE_API_URL ?? 'https://api.coinbase.com/v2/exchange-rates?currency=BTC',
+  cacheTtlMs: parseNumberOptional(
+    process.env.EXCHANGE_RATE_CACHE_MS,
+    'EXCHANGE_RATE_CACHE_MS',
+    60_000
+  )
+};
+
+const blockchainWatcher = {
+  pollIntervalMs: parseNumberOptional(
+    process.env.WATCHER_POLL_INTERVAL_MS,
+    'WATCHER_POLL_INTERVAL_MS',
+    30_000
+  ),
+  minConfirmations: parseNumberOptional(
+    process.env.WATCHER_MIN_CONFIRMATIONS,
+    'WATCHER_MIN_CONFIRMATIONS',
+    1
+  )
+};
+
 const jwt = {
   secret: ensureEnv('JWT_SECRET')
 };
@@ -73,6 +97,8 @@ const wallet = {
 const config = {
   database,
   bitcoinRpc,
+  fiat,
+  blockchainWatcher,
   jwt,
   server,
   wallet

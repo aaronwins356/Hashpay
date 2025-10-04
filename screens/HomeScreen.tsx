@@ -13,8 +13,18 @@ import { HomeStackParamList } from '../types/navigation';
 
 const formatBTC = (amount: number): string => amount.toFixed(8);
 
-const formatUSD = (amount: number): string =>
-  `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatFiat = (amount: number, currency: string | null): string => {
+  if (currency) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
   StyleSheet.create({
@@ -58,7 +68,7 @@ const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
   });
 
 const HomeScreen: React.FC = () => {
-  const { balance, fiatBalance, refreshBalance } = useBalance();
+  const { balance, fiatBalance, fiatCurrency, pendingBalance, pendingFiatBalance, refreshBalance } = useBalance();
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
   const [refreshing, setRefreshing] = useState(false);
   const { colors } = useTheme();
@@ -91,7 +101,16 @@ const HomeScreen: React.FC = () => {
   }, [navigation]);
 
   const formattedBTC = useMemo(() => formatBTC(balance), [balance]);
-  const formattedUSD = useMemo(() => formatUSD(fiatBalance), [fiatBalance]);
+  const formattedFiat = useMemo(() => formatFiat(fiatBalance, fiatCurrency), [fiatBalance, fiatCurrency]);
+  const formattedPendingBtc = useMemo(() => formatBTC(pendingBalance), [pendingBalance]);
+  const formattedPendingFiat = useMemo(
+    () => formatFiat(pendingFiatBalance, fiatCurrency),
+    [pendingFiatBalance, fiatCurrency]
+  );
+  const hasPending = useMemo(
+    () => Math.abs(pendingBalance) > 0 || Math.abs(pendingFiatBalance) > 0,
+    [pendingBalance, pendingFiatBalance]
+  );
 
   return (
     <SafeAreaView style={[layout.screen, styles.safeArea]}>
@@ -102,7 +121,12 @@ const HomeScreen: React.FC = () => {
         <Animated.View entering={FadeIn.duration(600)} style={styles.balanceContainer}>
           <Text style={styles.balanceLabel}>Total Balance</Text>
           <Text style={styles.balanceValue}>{formattedBTC} BTC</Text>
-          <Text style={styles.balanceFiat}>{formattedUSD}</Text>
+          <Text style={styles.balanceFiat}>{formattedFiat}</Text>
+          {hasPending ? (
+            <Text style={styles.balanceFiat}>
+              Pending: {formattedPendingBtc} BTC · {formattedPendingFiat}
+            </Text>
+          ) : null}
         </Animated.View>
 
         <View style={styles.actionsContainer}>

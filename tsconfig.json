@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "ESNext",
+    "jsx": "react-native",
+    "strict": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["*", "src/*"]
+    },
+    "types": ["jest", "react", "react-native"]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "backend",
+    "node_modules",
+    "dist",
+    "android",
+    "ios"
+  ]
+}

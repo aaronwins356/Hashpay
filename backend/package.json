@@ -10,7 +10,8 @@
     "lint": "eslint --no-eslintrc --config .eslintrc.json 'src/**/*.{ts,tsx}'",
     "format": "prettier --check .",
     "migrate": "node scripts/run-migrations.js",
-    "test": "ts-node --transpile-only tests/run-tests.ts"
+    "test": "ts-node --transpile-only tests/run-tests.ts",
+    "watcher": "node dist/src/workers/blockchainWatcher.js"
   },
   "author": "",
   "license": "MIT",
