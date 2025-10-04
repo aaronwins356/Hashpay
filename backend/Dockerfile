@@ -15,6 +15,7 @@ COPY .eslintrc.json ./
 COPY .prettierrc ./
 COPY src ./src
 COPY config ./config
+COPY scripts ./scripts
 
 RUN npm run build
 
@@ -28,5 +29,6 @@ COPY --from=deps /usr/src/app/node_modules ./node_modules
 RUN npm prune --omit=dev
 
 COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/scripts ./scripts
 
-CMD ["node", "dist/src/server.js"]
+ENTRYPOINT ["/usr/src/app/scripts/start-with-migrations.sh"]
