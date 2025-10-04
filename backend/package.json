@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
-    "lint": "eslint --no-eslintrc --config .eslintrc.json 'src/**/*.{ts,tsx}'",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint --no-eslintrc --config .eslintrc.json 'src/**/*.{ts,tsx}'",
     "format": "prettier --check .",
     "migrate": "node scripts/run-migrations.js",
     "test": "ts-node --transpile-only tests/run-tests.ts",

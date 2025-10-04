@@ -5,7 +5,9 @@ import cors from 'cors';
 import config from '../config';
 import './db';
 import authRoutes from './routes/auth';
-import walletRoutes from './routes/wallet';
+import v1Routes from './routes/v1';
+import conversionService from './services/ConversionService';
+import openApiDocument from './docs/openapi';
 import rateLimiter from './middleware/rateLimit';
 
 const app: Application = express();
@@ -35,11 +37,17 @@ app.use(rateLimiter);
 app.use(morgan('combined'));
 
 app.use('/auth', authRoutes);
-app.use('/wallet', walletRoutes);
+app.use('/v1', v1Routes);
+
+app.get('/docs/openapi.json', (_req: Request, res: Response) => {
+  res.status(200).json(openApiDocument);
+});
 
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
+
+conversionService.start();
 
 const PORT = config.server.port;
 
