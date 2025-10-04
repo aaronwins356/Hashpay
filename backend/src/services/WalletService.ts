@@ -19,6 +19,11 @@ interface WalletBalances {
   USD: BalanceSummary;
 }
 
+interface WalletSnapshot {
+  balances: WalletBalances;
+  usdPerBtc: number;
+}
+
 const REQUIRED_CONFIRMATIONS = Math.max(config.blockchainWatcher.minConfirmations ?? 3, 1);
 
 const formatCurrencyAmount = (value: string, decimals: number): number => Number.parseFloat(Number.parseFloat(value).toFixed(decimals));
@@ -49,23 +54,27 @@ const ensureRate = async (): Promise<{ rawUsdPerBtc: number }> => {
 };
 
 export class WalletService {
-  public static async getBalances(userId: number): Promise<WalletBalances> {
-    const [btcWallet, usdWallet] = await Promise.all([
+  public static async getBalances(userId: number): Promise<WalletSnapshot> {
+    const [btcWallet, usdWallet, rate] = await Promise.all([
       ensureWallet(userId, 'BTC'),
-      ensureWallet(userId, 'USD')
+      ensureWallet(userId, 'USD'),
+      ensureRate()
     ]);
 
     return {
-      BTC: {
-        balance: formatCurrencyAmount(btcWallet.balance, 8),
-        pending: formatCurrencyAmount(btcWallet.pendingBalance, 8),
-        depositAddress: btcWallet.depositAddress
+      balances: {
+        BTC: {
+          balance: formatCurrencyAmount(btcWallet.balance, 8),
+          pending: formatCurrencyAmount(btcWallet.pendingBalance, 8),
+          depositAddress: btcWallet.depositAddress
+        },
+        USD: {
+          balance: formatCurrencyAmount(usdWallet.balance, 2),
+          pending: formatCurrencyAmount(usdWallet.pendingBalance, 2),
+          depositAddress: usdWallet.depositAddress
+        }
       },
-      USD: {
-        balance: formatCurrencyAmount(usdWallet.balance, 2),
-        pending: formatCurrencyAmount(usdWallet.pendingBalance, 2),
-        depositAddress: usdWallet.depositAddress
-      }
+      usdPerBtc: rate.rawUsdPerBtc
     };
   }
 
@@ -92,6 +101,7 @@ export class WalletService {
 
     const { rawUsdPerBtc } = await ensureRate();
     const amountStr = amountBtc.toFixed(8);
+    const amountUsd = Number.parseFloat((amountBtc * rawUsdPerBtc).toFixed(2));
     const fee = FeeService.calculateFee({
       amount: amountBtc,
       currency: 'BTC',
@@ -123,8 +133,10 @@ export class WalletService {
           metadata: {
             toAddress,
             amountBtc,
+            amountUsd,
             feeCurrency: 'BTC',
-            feeUsd: fee.feeAmountUsd
+            feeUsd: fee.feeAmountUsd,
+            usdPerBtc: rawUsdPerBtc
           }
         },
         client
@@ -203,7 +215,9 @@ export class WalletService {
           metadata: {
             toUserId,
             amountUsd,
-            feeCurrency: 'USD'
+            feeCurrency: 'USD',
+            feeUsd: fee.feeAmountUsd,
+            usdPerBtc: rawUsdPerBtc
           }
         },
         client
@@ -267,8 +281,11 @@ export class WalletService {
             metadata: {
               fromCurrency: 'BTC',
               requestedAmount: amount,
+              convertedAmountUsd: quote.convertedAmount,
               feeCurrency: 'USD',
-              rate: quote.rate.raw
+              feeUsd: quote.feeUsd,
+              rate: quote.rate.raw,
+              usdPerBtc: quote.rate.raw
             }
           },
           client
@@ -315,8 +332,11 @@ export class WalletService {
             metadata: {
               fromCurrency: 'USD',
               requestedAmount: amount,
+              convertedAmountBtc: quote.convertedAmount,
               feeCurrency: 'USD',
-              rate: quote.rate.raw
+              feeUsd: quote.feeUsd,
+              rate: quote.rate.raw,
+              usdPerBtc: quote.rate.raw
             }
           },
           client
@@ -374,7 +394,8 @@ export class WalletService {
     });
 
     const netAmount = params.amountBtc - Number.parseFloat(fee.feeAmountCurrency);
-
+    const netUsd = Number.parseFloat((netAmount * rawUsdPerBtc).toFixed(2));
+    
     if (netAmount <= 0) {
       throw new Error('Deposit amount is too small after fees.');
     }
@@ -405,7 +426,9 @@ export class WalletService {
               confirmations: params.confirmations,
               grossAmountBtc: grossAmountStr,
               feeUsd: fee.feeAmountUsd,
-              feeCurrency: 'BTC'
+              feeCurrency: 'BTC',
+              amountUsd: netUsd,
+              usdPerBtc: rawUsdPerBtc
             }
           },
           client

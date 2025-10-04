@@ -9,10 +9,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useThemedStyles, TypographyStyles } from '../theme/styles';
 import type { ThemeColors } from '../theme/colors';
-import { getTransactions, Transaction } from '../services/api';
+import { useBalance } from '../contexts/BalanceContext';
+import type { Transaction } from '../services/api';
 import { TransactionItem } from '../components/TransactionItem';
 
 const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
@@ -58,8 +60,8 @@ const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
   });
 
 const HistoryScreen: React.FC = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { transactions, refreshTransactions, transactionsReady } = useBalance();
+  const [loading, setLoading] = useState(!transactionsReady);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { colors } = useTheme();
@@ -67,30 +69,36 @@ const HistoryScreen: React.FC = () => {
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   const loadTransactions = useCallback(async () => {
+    setLoading(true);
     try {
+      await refreshTransactions();
       setError(null);
-      setLoading(true);
-      const data = await getTransactions();
-      setTransactions(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to load transactions.';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshTransactions]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions().catch(err => {
+        console.error('Failed to load transactions:', err);
+      });
+    }, [loadTransactions])
+  );
 
   useEffect(() => {
-    loadTransactions().catch(err => {
-      console.error('Failed to load transactions:', err);
-    });
-  }, [loadTransactions]);
+    if (transactionsReady) {
+      setLoading(false);
+    }
+  }, [transactionsReady]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const data = await getTransactions();
-      setTransactions(data);
+      await refreshTransactions();
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to refresh transactions.';
@@ -98,7 +106,7 @@ const HistoryScreen: React.FC = () => {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshTransactions]);
 
   const renderItem = useCallback(
     ({ item }: { item: Transaction }) => <TransactionItem transaction={item} />,
@@ -107,6 +115,8 @@ const HistoryScreen: React.FC = () => {
 
   const keyExtractor = useCallback((item: Transaction) => item.txId ?? item.id, []);
 
+  const isLoading = loading || !transactionsReady;
+
   return (
     <SafeAreaView style={[layout.screen, styles.safeArea]}>
       <View style={styles.header}>
@@ -114,7 +124,7 @@ const HistoryScreen: React.FC = () => {
         <Text style={styles.subtitle}>Track recent payments and transfers across your wallet.</Text>
       </View>
 
-      {loading ? (
+      {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
