@@ -1,0 +1,14 @@
+process.env.DB_HOST = process.env.DB_HOST ?? 'localhost';
+process.env.DB_USER = process.env.DB_USER ?? 'user';
+process.env.DB_PASS = process.env.DB_PASS ?? 'password';
+process.env.DB_NAME = process.env.DB_NAME ?? 'hash';
+process.env.DB_PORT = process.env.DB_PORT ?? '5432';
+process.env.BTC_RPC_HOST = process.env.BTC_RPC_HOST ?? '127.0.0.1';
+process.env.BTC_RPC_PORT = process.env.BTC_RPC_PORT ?? '18332';
+process.env.BTC_RPC_USER = process.env.BTC_RPC_USER ?? 'user';
+process.env.BTC_RPC_PASS = process.env.BTC_RPC_PASS ?? 'password';
+process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'test-secret';
+process.env.MAX_WITHDRAW_BTC = process.env.MAX_WITHDRAW_BTC ?? '0.05';
+process.env.RATE_LIMIT_WINDOW_MS = process.env.RATE_LIMIT_WINDOW_MS ?? '60000';
+process.env.RATE_LIMIT_MAX = process.env.RATE_LIMIT_MAX ?? '100';
+process.env.ENFORCE_HTTPS = process.env.ENFORCE_HTTPS ?? 'false';

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import WalletController from '../controllers/WalletController';
 import authMiddleware from '../middleware/auth';
+import { validate, walletSchemas } from '../middleware/validate';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.use(authMiddleware);
  */
 router.get('/balance', WalletController.balance);
 router.get('/address', WalletController.address);
-router.post('/send', WalletController.send);
+router.post('/send', validate({ body: walletSchemas.send }), WalletController.send);
 router.get('/history', WalletController.history);
 
 export default router;

@@ -1,25 +1,32 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine AS deps
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-COPY tsconfig.json .
-COPY .eslintrc.json .
-COPY .prettierrc .
+FROM node:20-alpine AS builder
+WORKDIR /usr/src/app
+
+COPY --from=deps /usr/src/app/node_modules ./node_modules
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY .eslintrc.json ./
+COPY .prettierrc ./
 COPY src ./src
 COPY config ./config
 
 RUN npm run build
-RUN npm prune --omit=dev
 
-FROM node:20-alpine AS runtime
+FROM node:20-alpine AS production
 WORKDIR /usr/src/app
-COPY --from=base /usr/src/app/package.json ./
-COPY --from=base /usr/src/app/node_modules ./node_modules
-COPY --from=base /usr/src/app/dist ./dist
-COPY --from=base /usr/src/app/config ./config
 
 ENV NODE_ENV=production
+
+COPY --from=deps /usr/src/app/package*.json ./
+COPY --from=deps /usr/src/app/node_modules ./node_modules
+RUN npm prune --omit=dev
+
+COPY --from=builder /usr/src/app/dist ./dist
+
 CMD ["node", "dist/src/server.js"]

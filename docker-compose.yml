@@ -1,4 +1,5 @@
-version: '3.8'
+version: '3.9'
+
 services:
   postgres:
     image: postgres:14
@@ -8,7 +9,12 @@ services:
       POSTGRES_PASSWORD: btcpass
       POSTGRES_DB: btcdb
     ports:
-      - "5432:5432"
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'btcuser']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -16,18 +22,47 @@ services:
     image: ruimarinho/bitcoin-core:24
     restart: always
     command:
-      -printtoconsole
-      -testnet=1
-      -server=1
-      -rpcuser=user
-      -rpcpassword=password
-      -rpcallowip=0.0.0.0/0
-      -rpcbind=0.0.0.0
+      - -printtoconsole
+      - -testnet=1
+      - -server=1
+      - -rpcuser=user
+      - -rpcpassword=password
+      - -rpcallowip=0.0.0.0/0
+      - -rpcbind=0.0.0.0
     ports:
-      - "18332:18332"
-      - "18333:18333"
+      - '18332:18332'
+      - '18333:18333'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bitcoin-cli',
+          '-testnet',
+          '-rpcuser=user',
+          '-rpcpassword=password',
+          'getblockchaininfo'
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     volumes:
       - bitcoin-data:/home/bitcoin/.bitcoin
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - backend/.env.example
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bitcoin:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
 
 volumes:
   pgdata:

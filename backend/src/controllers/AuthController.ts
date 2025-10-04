@@ -3,11 +3,34 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import config from '../../config';
 import UserRepository, { User } from '../repositories/UserRepository';
+import { sanitizeEmail } from '../utils/sanitize';
 
 const TOKEN_EXPIRY = '7d';
 const SALT_ROUNDS = 10;
 
 type AuthenticatedUser = Pick<User, 'id' | 'email' | 'createdAt'>;
+
+type AuthDependencies = {
+  userRepository: typeof UserRepository;
+  bcrypt: typeof bcrypt;
+  jwt: typeof jwt;
+};
+
+const authDependencies: AuthDependencies = {
+  userRepository: UserRepository,
+  bcrypt,
+  jwt
+};
+
+export const setAuthControllerDependencies = (overrides: Partial<AuthDependencies>): void => {
+  Object.assign(authDependencies, overrides);
+};
+
+export const resetAuthControllerDependencies = (): void => {
+  authDependencies.userRepository = UserRepository;
+  authDependencies.bcrypt = bcrypt;
+  authDependencies.jwt = jwt;
+};
 
 const toProfile = (user: User): AuthenticatedUser => ({
   id: user.id,
@@ -15,52 +38,24 @@ const toProfile = (user: User): AuthenticatedUser => ({
   createdAt: user.createdAt
 });
 
-const isValidEmail = (value: unknown): value is string => {
-  if (typeof value !== 'string') {
-    return false;
-  }
-  const trimmed = value.trim();
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
-  return emailRegex.test(trimmed);
-};
-
-const normalizeEmail = (email: string): string => email.trim().toLowerCase();
-
-const isValidPassword = (value: unknown): value is string => {
-  if (typeof value !== 'string') {
-    return false;
-  }
-  return value.length >= 8 && value.length <= 128;
-};
-
 const generateToken = (userId: number): string => {
-  return jwt.sign({ userId }, config.jwt.secret, { expiresIn: TOKEN_EXPIRY });
+  return authDependencies.jwt.sign({ userId }, config.jwt.secret, { expiresIn: TOKEN_EXPIRY });
 };
 
 class AuthController {
   public static async signup(req: Request, res: Response): Promise<Response> {
     try {
-      const { email, password } = req.body ?? {};
+      const { email, password } = req.body as { email: string; password: string };
 
-      if (!isValidEmail(email)) {
-        return res.status(400).json({ message: 'A valid email address is required.' });
-      }
+      const normalizedEmail = sanitizeEmail(email);
 
-      if (!isValidPassword(password)) {
-        return res
-          .status(400)
-          .json({ message: 'Password must be between 8 and 128 characters long.' });
-      }
-
-      const normalizedEmail = normalizeEmail(email);
-
-      const existingUser = await UserRepository.findUserByEmail(normalizedEmail);
+      const existingUser = await authDependencies.userRepository.findUserByEmail(normalizedEmail);
       if (existingUser) {
         return res.status(409).json({ message: 'Email is already registered.' });
       }
 
-      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-      const user = await UserRepository.createUser(normalizedEmail, passwordHash);
+      const passwordHash = await authDependencies.bcrypt.hash(password, SALT_ROUNDS);
+      const user = await authDependencies.userRepository.createUser(normalizedEmail, passwordHash);
       const token = generateToken(user.id);
 
       return res.status(201).json({ token, user: toProfile(user) });
@@ -73,19 +68,15 @@ class AuthController {
 
   public static async login(req: Request, res: Response): Promise<Response> {
     try {
-      const { email, password } = req.body ?? {};
+      const { email, password } = req.body as { email: string; password: string };
 
-      if (!isValidEmail(email) || !isValidPassword(password)) {
-        return res.status(400).json({ message: 'Invalid email or password.' });
-      }
-
-      const normalizedEmail = normalizeEmail(email);
-      const user = await UserRepository.findUserByEmail(normalizedEmail);
+      const normalizedEmail = sanitizeEmail(email);
+      const user = await authDependencies.userRepository.findUserByEmail(normalizedEmail);
       if (!user) {
         return res.status(401).json({ message: 'Invalid credentials.' });
       }
 
-      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      const isPasswordValid = await authDependencies.bcrypt.compare(password, user.passwordHash);
       if (!isPasswordValid) {
         return res.status(401).json({ message: 'Invalid credentials.' });
       }
