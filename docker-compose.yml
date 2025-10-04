@@ -66,6 +66,42 @@ services:
     ports:
       - '3000:3000'
 
+  watcher:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    entrypoint:
+      - /usr/src/app/scripts/start-watcher.sh
+    env_file:
+      - backend/.env.docker
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bitcoin:
+        condition: service_healthy
+
+  mobile:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      EXPO_PUBLIC_API_BASE_URL: http://api:3000
+      EXPO_PUBLIC_BITCOIN_RPC_URL: http://bitcoin:18332
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - '8081:8081'
+    command:
+      - npm
+      - run
+      - start
+      - --
+      - --tunnel
+      - --non-interactive
+
 volumes:
   pgdata:
   bitcoin-data:

@@ -105,7 +105,7 @@ const HistoryScreen: React.FC = () => {
     []
   );
 
-  const keyExtractor = useCallback((item: Transaction) => item.txid, []);
+  const keyExtractor = useCallback((item: Transaction) => item.txid ?? String(item.id), []);
 
   return (
     <SafeAreaView style={[layout.screen, styles.safeArea]}>

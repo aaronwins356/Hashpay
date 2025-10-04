@@ -41,6 +41,23 @@ const formatDate = (value: string): string => {
   }).format(date);
 };
 
+const formatFiat = (amount: number | null, currency: string | null): string | null => {
+  if (amount === null) {
+    return null;
+  }
+
+  if (currency) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+
+  return `$${amount.toFixed(2)}`;
+};
+
 const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
   StyleSheet.create({
     container: {
@@ -72,6 +89,17 @@ const createStyles = (colors: ThemeColors, typography: TypographyStyles) =>
       ...typography.monospace,
       fontSize: 13,
     },
+    fiatValue: {
+      ...typography.body,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    direction: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
   });
 
 export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
@@ -79,23 +107,39 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction })
   const { typography } = useThemedStyles();
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
   const statusColor = getStatusColor(transaction.status, colors);
+  const rawFiatDisplay = formatFiat(transaction.fiatAmount, transaction.fiatCurrency);
+  const fiatDisplay =
+    rawFiatDisplay && transaction.direction === 'outbound'
+      ? `-${rawFiatDisplay}`
+      : rawFiatDisplay;
+  const sign = transaction.direction === 'inbound' ? '+' : '-';
+  const amountLabel = `${sign}${Math.abs(transaction.amountBtc).toFixed(8)} BTC`;
+  const confirmationsLabel = `${transaction.confirmations} confirmation${transaction.confirmations === 1 ? '' : 's'}`;
 
   return (
     <View style={styles.container}>
       <Card>
         <View style={styles.header}>
-          <Text style={styles.amount}>{transaction.amount.toFixed(8)} BTC</Text>
+          <View>
+            <Text style={styles.amount}>{amountLabel}</Text>
+            <Text style={styles.direction}>{transaction.direction === 'inbound' ? 'Inbound' : 'Outbound'}</Text>
+            {fiatDisplay ? <Text style={styles.fiatValue}>{fiatDisplay}</Text> : null}
+          </View>
           <Text style={[styles.status, { color: statusColor }]}>{STATUS_LABEL[transaction.status]}</Text>
         </View>
         <View style={styles.meta}>
           <Text style={styles.metaLabel}>Date</Text>
-          <Text style={styles.metaValue}>{formatDate(transaction.date)}</Text>
+          <Text style={styles.metaValue}>{formatDate(transaction.createdAt)}</Text>
         </View>
         <View style={styles.meta}>
           <Text style={styles.metaLabel}>Transaction ID</Text>
           <Text style={styles.metaValue} selectable numberOfLines={1} ellipsizeMode="middle">
-            {transaction.txid}
+            {transaction.txid ?? 'Pending assignment'}
           </Text>
+        </View>
+        <View style={styles.meta}>
+          <Text style={styles.metaLabel}>Confirmations</Text>
+          <Text style={styles.metaValue}>{confirmationsLabel}</Text>
         </View>
       </Card>
     </View>

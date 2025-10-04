@@ -19,6 +19,37 @@ type JsonRpcResponse<T> = {
   id: string;
 };
 
+export type ListTransaction = {
+  address?: string;
+  category: 'send' | 'receive' | 'generate' | 'immature' | 'orphan';
+  amount: number;
+  label?: string;
+  confirmations: number;
+  txid: string;
+  time: number;
+  blockhash?: string;
+  blockindex?: number;
+  blocktime?: number;
+  otheraccount?: string;
+};
+
+export type GetTransactionDetails = {
+  amount: number;
+  fee?: number;
+  confirmations: number;
+  blockhash?: string;
+  blocktime?: number;
+  txid: string;
+  details: Array<{
+    address?: string;
+    category: 'send' | 'receive' | 'generate' | 'immature' | 'orphan';
+    amount: number;
+    label?: string;
+    fee?: number;
+  }>;
+  time: number;
+};
+
 export class BitcoinService {
   private readonly client: AxiosInstance;
 
@@ -61,12 +92,28 @@ export class BitcoinService {
     return this.rpcCall<number>('getbalance');
   }
 
-  public async getNewAddress(): Promise<string> {
-    return this.rpcCall<string>('getnewaddress');
+  public async getNewAddress(label?: string): Promise<string> {
+    const params: unknown[] = [];
+    if (label) {
+      params.push(label, 'bech32');
+    }
+    return this.rpcCall<string>('getnewaddress', params);
   }
 
   public async sendToAddress(address: string, amount: number): Promise<string> {
     return this.rpcCall<string>('sendtoaddress', [address, amount]);
+  }
+
+  public async listTransactions(
+    count = 100,
+    skip = 0,
+    includeWatchOnly = true
+  ): Promise<ListTransaction[]> {
+    return this.rpcCall<ListTransaction[]>('listtransactions', ['*', count, skip, includeWatchOnly]);
+  }
+
+  public async getTransaction(txid: string): Promise<GetTransactionDetails> {
+    return this.rpcCall<GetTransactionDetails>('gettransaction', [txid]);
   }
 }
 

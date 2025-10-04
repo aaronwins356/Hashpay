@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { login as loginRequest, signup as signupRequest } from '../services/api';
+import { login as loginRequest, setAuthToken, signup as signupRequest } from '../services/api';
 import { clearToken, getStoredToken, storeToken } from '../services/auth';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -52,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const token = await getStoredToken();
       if (token) {
+        setAuthToken(token);
         setUserToken(token);
       } else {
         setUserToken(null);
@@ -71,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleAuthSuccess = useCallback(async (token: string) => {
     await storeToken(token);
+    setAuthToken(token);
     setUserToken(token);
   }, []);
 
@@ -118,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       await clearToken();
+      setAuthToken(null);
       setUserToken(null);
     } catch (logoutError) {
       const message = resolveErrorMessage(logoutError, 'Unable to log you out.');
@@ -158,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('No saved session found. Please login with your password first.');
       }
 
+      setAuthToken(token);
       setUserToken(token);
     } catch (biometricError) {
       const message = resolveErrorMessage(biometricError, 'Unable to log you in with biometrics.');
