@@ -1,22 +1,36 @@
 import { Request, Response } from 'express';
+import config from '../../config';
 import bitcoinService from '../services/BitcoinService';
 import TransactionRepository from '../repositories/TransactionRepository';
+import { TESTNET_ADDRESS_REGEX } from '../middleware/validate';
+import { sanitizeInput } from '../utils/sanitize';
 
 const SATS_PER_BTC = 100_000_000n;
 const SATS_PER_BTC_NUMBER = Number(SATS_PER_BTC);
 const SERVICE_FEE_PERCENT = 1n; // 1%
 
+type WalletDependencies = {
+  bitcoinService: typeof bitcoinService;
+  transactionRepository: typeof TransactionRepository;
+};
+
+const walletDependencies: WalletDependencies = {
+  bitcoinService,
+  transactionRepository: TransactionRepository
+};
+
+export const setWalletControllerDependencies = (overrides: Partial<WalletDependencies>): void => {
+  Object.assign(walletDependencies, overrides);
+};
+
+export const resetWalletControllerDependencies = (): void => {
+  walletDependencies.bitcoinService = bitcoinService;
+  walletDependencies.transactionRepository = TransactionRepository;
+};
+
 const toSats = (amountBtc: number): bigint => BigInt(Math.round(amountBtc * SATS_PER_BTC_NUMBER));
 
-const isValidTestnetAddress = (address: string): boolean => {
-  if (!address || typeof address !== 'string') {
-    return false;
-  }
-
-  const normalized = address.trim();
-  const testnetRegex = /^(tb1[ac-hj-np-z02-9]{39,59}|bcrt1[ac-hj-np-z02-9]{39,59}|[mn2][1-9A-HJ-NP-Za-km-z]{25,39})$/;
-  return testnetRegex.test(normalized);
-};
+const isValidTestnetAddress = (address: string): boolean => TESTNET_ADDRESS_REGEX.test(address);
 
 export class WalletController {
   public static async balance(req: Request, res: Response): Promise<Response> {
@@ -25,7 +39,7 @@ export class WalletController {
     }
 
     try {
-      const balance = await bitcoinService.getBalance();
+      const balance = await walletDependencies.bitcoinService.getBalance();
       return res.status(200).json({ balance });
     } catch (error) {
       return res.status(502).json({ message: 'Unable to fetch wallet balance.', error: (error as Error).message });
@@ -38,7 +52,7 @@ export class WalletController {
     }
 
     try {
-      const address = await bitcoinService.getNewAddress();
+      const address = await walletDependencies.bitcoinService.getNewAddress();
       return res.status(200).json({ address });
     } catch (error) {
       return res.status(502).json({ message: 'Unable to generate address.', error: (error as Error).message });
@@ -50,13 +64,19 @@ export class WalletController {
       return res.status(401).json({ message: 'Authentication required.' });
     }
 
-    const { address, amount } = req.body as { address?: string; amount?: number };
+    const { address, amount } = req.body as { address: string; amount: number };
 
-    if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
-      return res.status(400).json({ message: 'Amount must be a positive number.' });
+    if (amount > config.wallet.maxWithdrawBtc) {
+      return res
+        .status(400)
+        .json({
+          message: `Amount exceeds maximum withdrawal limit of ${config.wallet.maxWithdrawBtc} BTC per transaction.`
+        });
     }
 
-    if (!address || !isValidTestnetAddress(address)) {
+    const sanitizedAddress = sanitizeInput(address);
+
+    if (!isValidTestnetAddress(sanitizedAddress)) {
       return res.status(400).json({ message: 'A valid Bitcoin testnet address is required.' });
     }
 
@@ -70,11 +90,11 @@ export class WalletController {
       }
 
       const sendAmountBtc = Number(sendAmountSats) / SATS_PER_BTC_NUMBER;
-      const txid = await bitcoinService.sendToAddress(address, sendAmountBtc);
+      const txid = await walletDependencies.bitcoinService.sendToAddress(sanitizedAddress, sendAmountBtc);
 
       const networkFeeSats = 0n;
 
-      const transaction = await TransactionRepository.logPendingSend(
+      const transaction = await walletDependencies.transactionRepository.logPendingSend(
         req.user.id,
         txid,
         amountSats,
@@ -100,7 +120,9 @@ export class WalletController {
     }
 
     try {
-      const transactions = await TransactionRepository.getTransactionsForUser(req.user.id);
+      const transactions = await walletDependencies.transactionRepository.getTransactionsForUser(
+        req.user.id
+      );
       return res.status(200).json({ transactions });
     } catch (error) {
       return res.status(500).json({ message: 'Unable to fetch transaction history.', error: (error as Error).message });

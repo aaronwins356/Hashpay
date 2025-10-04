@@ -30,6 +30,13 @@ const parseNumber = (value: string, key: string): number => {
   return parsed;
 };
 
+const parseNumberOptional = (value: string | undefined, key: string, defaultValue: number): number => {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  return parseNumber(value, key);
+};
+
 const database = {
   host: ensureEnv('DB_HOST'),
   user: ensureEnv('DB_USER'),
@@ -50,14 +57,25 @@ const jwt = {
 };
 
 const server = {
-  port: process.env.PORT ? parseNumber(process.env.PORT, 'PORT') : 3000
+  port: process.env.PORT ? parseNumber(process.env.PORT, 'PORT') : 3000,
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+  rateLimit: {
+    windowMs: parseNumberOptional(process.env.RATE_LIMIT_WINDOW_MS, 'RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+    maxRequests: parseNumberOptional(process.env.RATE_LIMIT_MAX, 'RATE_LIMIT_MAX', 100)
+  },
+  enforceHttps: (process.env.ENFORCE_HTTPS ?? 'true').toLowerCase() !== 'false'
+};
+
+const wallet = {
+  maxWithdrawBtc: parseNumberOptional(process.env.MAX_WITHDRAW_BTC, 'MAX_WITHDRAW_BTC', 0.05)
 };
 
 const config = {
   database,
   bitcoinRpc,
   jwt,
-  server
+  server,
+  wallet
 };
 
 export type AppConfig = typeof config;

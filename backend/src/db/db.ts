@@ -9,12 +9,13 @@ const pool = new Pool({
   port: config.database.port
 });
 
-pool.on('error', (error: Error) => {
+pool.on('error', (error: unknown) => {
+  const normalized = error instanceof Error ? error : new Error(String(error));
   // eslint-disable-next-line no-console
-  console.error('Unexpected database error', error);
+  console.error('Unexpected database error', normalized);
 });
 
-export type QueryParams = ReadonlyArray<unknown>;
+export type QueryParams = unknown[];
 
 export const query = async <T>(sql: string, params: QueryParams = []): Promise<QueryResult<T>> => {
   return pool.query<T>(sql, params);

@@ -8,6 +8,20 @@ interface JwtPayload {
   exp?: number;
 }
 
+type JwtVerifier = (token: string, secret: jwt.Secret) => JwtPayload;
+
+let verifyJwt: JwtVerifier = (token: string, secret: jwt.Secret) => {
+  return jwt.verify(token, secret) as JwtPayload;
+};
+
+export const setAuthMiddlewareJwtVerifier = (verifier: JwtVerifier): void => {
+  verifyJwt = verifier;
+};
+
+export const resetAuthMiddlewareJwtVerifier = (): void => {
+  verifyJwt = (token: string, secret: jwt.Secret) => jwt.verify(token, secret) as JwtPayload;
+};
+
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): Response | void => {
   const authHeader = req.headers.authorization;
 
@@ -22,7 +36,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
   }
 
   try {
-    const payload = jwt.verify(token, config.jwt.secret) as JwtPayload;
+    const payload = verifyJwt(token, config.jwt.secret);
     req.user = { id: payload.userId };
     return next();
   } catch (error) {
